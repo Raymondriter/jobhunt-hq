@@ -1,0 +1,250 @@
+/* JobHunt HQ — site styles (plain CSS, no frameworks) */
+
+:root {
+    --ink: #1c2430;
+    --muted: #5a6572;
+    --accent: #0f5e8c;
+    --accent-dark: #0b4769;
+    --line: #dde3e9;
+    --panel: #f6f8fa;
+    --badge: #e8edf1;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    margin: 0;
+    color: var(--ink);
+    background: #fff;
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.container {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+}
+
+/* Header / nav */
+
+.site-header {
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+}
+
+.brand {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.brand:hover {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.site-nav a {
+    margin-left: 1.25rem;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.site-nav a:hover {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+/* Main / footer */
+
+.site-main {
+    flex: 1;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+.site-footer {
+    border-top: 1px solid var(--line);
+    padding: 1.1rem 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* Landing page */
+
+.hero {
+    text-align: center;
+    padding: 2.5rem 0 1.5rem;
+}
+
+.hero h1 {
+    margin: 0;
+    font-size: 2.75rem;
+    letter-spacing: -0.02em;
+}
+
+.pitch {
+    margin: 0.75rem 0 0;
+    font-size: 1.35rem;
+    color: var(--accent-dark);
+    font-weight: 600;
+}
+
+.hero-sub {
+    max-width: 620px;
+    margin: 1rem auto 0;
+    color: var(--muted);
+}
+
+.pipeline-section,
+.status-section {
+    margin-top: 2.5rem;
+}
+
+.pipeline-section h2,
+.status-section h2 {
+    margin-bottom: 0.5rem;
+}
+
+.pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
+}
+
+.pipeline .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    font-weight: 600;
+}
+
+.pipeline .stage + .stage {
+    position: relative;
+    margin-left: 1.4rem;
+}
+
+.pipeline .stage + .stage::before {
+    content: "\2192";
+    position: absolute;
+    left: -1.35rem;
+    color: var(--muted);
+}
+
+.pipeline .stage-final {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.pipeline-note {
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 2.5rem;
+}
+
+.feature {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+}
+
+.feature h3 {
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+    font-size: 1.05rem;
+}
+
+.feature p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+/* Project status */
+
+.status-list {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+}
+
+.status-list li {
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.status-list li:last-child {
+    border-bottom: none;
+}
+
+.status-badge {
+    display: inline-block;
+    min-width: 5.5rem;
+    text-align: center;
+    margin-right: 0.75rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: var(--badge);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.status-badge.status-active {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* Error page */
+
+.error-heading {
+    color: #b3261e;
+}
+
+.error-subheading {
+    font-weight: 500;
+    color: var(--muted);
+}
