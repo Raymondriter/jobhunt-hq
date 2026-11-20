@@ -12,7 +12,14 @@
             <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">JobHunt HQ</a>
             <nav class="site-nav">
                 <a asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-area="" asp-controller="Applications" asp-action="Index">Applications</a>
+                    <a asp-area="" asp-controller="Resumes" asp-action="Index">Resumes</a>
+                    <a asp-area="" asp-controller="Import" asp-action="Index">Import</a>
+                }
                 <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                <partial name="_LoginPartial" />
             </nav>
         </div>
     </header>

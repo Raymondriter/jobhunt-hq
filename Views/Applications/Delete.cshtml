@@ -1,0 +1,30 @@
+@model JobHuntHQ.Models.JobApplication
+
+@{
+    ViewData["Title"] = "Delete application";
+}
+
+<h1>Delete application</h1>
+
+<p class="confirm-note">
+    Are you sure you want to delete this application? This cannot be undone.
+</p>
+
+<dl class="detail-list">
+    <dt>Company</dt>
+    <dd>@Model.Company</dd>
+    <dt>Role</dt>
+    <dd>@Model.RoleTitle</dd>
+    <dt>Status</dt>
+    <dd>@Model.Status</dd>
+    <dt>Date applied</dt>
+    <dd>@(Model.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</dd>
+</dl>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="form-actions">
+        <button type="submit" class="button button-danger">Delete</button>
+        <a asp-action="Index">Cancel</a>
+    </div>
+</form>

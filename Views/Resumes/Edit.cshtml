@@ -1,0 +1,16 @@
+@model JobHuntHQ.Models.ResumeFormViewModel
+
+@{
+    ViewData["Title"] = "Edit resume version";
+}
+
+<h1>Edit resume version</h1>
+
+<form asp-action="Edit" method="post" class="edit-form">
+    <input type="hidden" asp-for="Id" />
+    <partial name="_ResumeForm" model="Model" />
+    <div class="form-actions">
+        <button type="submit" class="button">Save changes</button>
+        <a asp-action="Index">Cancel</a>
+    </div>
+</form>

@@ -1,0 +1,79 @@
+@model JobHuntHQ.Models.DashboardViewModel
+@using JobHuntHQ.Models
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-heading">
+    <h1>Your dashboard</h1>
+    <a class="button" asp-controller="Applications" asp-action="Create">Add application</a>
+</div>
+
+<section class="dashboard-counts">
+    @foreach (var status in Enum.GetValues<ApplicationStatus>())
+    {
+        <a class="count-card" asp-controller="Applications" asp-action="Index" asp-route-status="@status">
+            <span class="count-number">@Model.StatusCounts[status]</span>
+            <span class="count-label">@status</span>
+        </a>
+    }
+</section>
+<p class="table-note">@Model.TotalApplications applications tracked in total.</p>
+
+<section class="dashboard-section">
+    <h2>Due in the next 7 days</h2>
+    @if (Model.DueSoon.Count == 0)
+    {
+        <p class="empty-note">Nothing due this week. Enjoy the quiet — or line up the next follow-up.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Company</th><th>Role</th><th>Next action</th><th>Due</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var app in Model.DueSoon)
+                {
+                    <tr>
+                        <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
+                        <td>@app.RoleTitle</td>
+                        <td>@app.NextAction</td>
+                        <td class="due-soon">@app.NextActionDue?.ToString("yyyy-MM-dd")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>Recently updated</h2>
+    @if (Model.RecentlyUpdated.Count == 0)
+    {
+        <p class="empty-note">
+            No applications yet. <a asp-controller="Applications" asp-action="Create">Add one</a>
+            or <a asp-controller="Import" asp-action="Index">import a CSV</a>.
+        </p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Company</th><th>Role</th><th>Status</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var app in Model.RecentlyUpdated)
+                {
+                    <tr>
+                        <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
+                        <td>@app.RoleTitle</td>
+                        <td><span class="status-pill">@app.Status</span></td>
+                        <td>@app.UpdatedUtc.ToString("yyyy-MM-dd")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

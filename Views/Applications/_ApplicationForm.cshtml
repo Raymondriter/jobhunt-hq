@@ -1,0 +1,85 @@
+@model JobHuntHQ.Models.ApplicationFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+<div class="form-row">
+    <label asp-for="Company"></label>
+    <input asp-for="Company" />
+    <span asp-validation-for="Company" class="field-error"></span>
+</div>
+
+<div class="form-row">
+    <label asp-for="RoleTitle"></label>
+    <input asp-for="RoleTitle" />
+    <span asp-validation-for="RoleTitle" class="field-error"></span>
+</div>
+
+<div class="form-row">
+    <label asp-for="Url"></label>
+    <input asp-for="Url" />
+    <span asp-validation-for="Url" class="field-error"></span>
+</div>
+
+<div class="form-row">
+    <label asp-for="Location"></label>
+    <input asp-for="Location" />
+    <span asp-validation-for="Location" class="field-error"></span>
+</div>
+
+<div class="form-grid">
+    <div class="form-row">
+        <label asp-for="Status"></label>
+        <select asp-for="Status" asp-items="Html.GetEnumSelectList<JobHuntHQ.Models.ApplicationStatus>()"></select>
+        <span asp-validation-for="Status" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="ResumeVersionId"></label>
+        <select asp-for="ResumeVersionId" asp-items="Model.ResumeOptions">
+            <option value="">— None —</option>
+        </select>
+        <span asp-validation-for="ResumeVersionId" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="DateSaved"></label>
+        <input asp-for="DateSaved" type="date" />
+        <span asp-validation-for="DateSaved" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="DateApplied"></label>
+        <input asp-for="DateApplied" type="date" />
+        <span asp-validation-for="DateApplied" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="SalaryMin"></label>
+        <input asp-for="SalaryMin" type="number" min="0" step="1000" />
+        <span asp-validation-for="SalaryMin" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="SalaryMax"></label>
+        <input asp-for="SalaryMax" type="number" min="0" step="1000" />
+        <span asp-validation-for="SalaryMax" class="field-error"></span>
+    </div>
+</div>
+
+<div class="form-row">
+    <label asp-for="NextAction"></label>
+    <input asp-for="NextAction" />
+    <span asp-validation-for="NextAction" class="field-error"></span>
+</div>
+
+<div class="form-row">
+    <label asp-for="NextActionDue"></label>
+    <input asp-for="NextActionDue" type="date" />
+    <span asp-validation-for="NextActionDue" class="field-error"></span>
+</div>
+
+<div class="form-row">
+    <label asp-for="Notes"></label>
+    <textarea asp-for="Notes" rows="5"></textarea>
+    <span asp-validation-for="Notes" class="field-error"></span>
+</div>

@@ -1,0 +1,48 @@
+@model List<JobHuntHQ.Models.ResumeVersion>
+
+@{
+    ViewData["Title"] = "Resumes";
+}
+
+<div class="page-heading">
+    <h1>Resumes</h1>
+    <a class="button" asp-action="Create">Add resume version</a>
+</div>
+
+<p class="page-note">
+    Resume versions are tracked by name and notes for now. File upload to cloud
+    storage arrives in the next milestone — until then, keep the actual files
+    wherever you keep them today and record which version went where.
+</p>
+
+@if (Model.Count == 0)
+{
+    <p class="empty-note">No resume versions yet. <a asp-action="Create">Add one</a> so you can record which resume each application used.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Notes</th>
+                <th>Added</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var resume in Model)
+            {
+                <tr>
+                    <td>@resume.Name</td>
+                    <td>@(resume.Notes ?? "—")</td>
+                    <td>@resume.CreatedUtc.ToString("yyyy-MM-dd")</td>
+                    <td class="row-actions">
+                        <a asp-action="Edit" asp-route-id="@resume.Id">Edit</a>
+                        <a asp-action="Delete" asp-route-id="@resume.Id">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,47 @@
+@model JobHuntHQ.Models.ImportResultViewModel
+
+@{
+    ViewData["Title"] = "Import results";
+}
+
+<h1>Import results</h1>
+
+<p class="import-summary">
+    <strong>@Model.ImportedCount</strong> application@(Model.ImportedCount == 1 ? "" : "s") imported.
+    @if (Model.Skipped.Count > 0)
+    {
+        <text><strong>@Model.Skipped.Count</strong> row@(Model.Skipped.Count == 1 ? "" : "s") skipped.</text>
+    }
+</p>
+
+@if (Model.Skipped.Count > 0)
+{
+    <h2>Skipped rows</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Line</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Skipped)
+            {
+                <tr><td>@row.LineNumber</td><td>@row.Reason</td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (Model.Warnings.Count > 0)
+{
+    <h2>Warnings</h2>
+    <ul class="warning-list">
+        @foreach (var warning in Model.Warnings)
+        {
+            <li>@warning</li>
+        }
+    </ul>
+}
+
+<p>
+    <a class="button" asp-controller="Applications" asp-action="Index">View applications</a>
+    <a asp-action="Index">Import another file</a>
+</p>

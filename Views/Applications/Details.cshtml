@@ -1,0 +1,85 @@
+@model JobHuntHQ.Models.JobApplication
+
+@{
+    ViewData["Title"] = $"{Model.Company} — {Model.RoleTitle}";
+}
+
+<div class="page-heading">
+    <h1>@Model.Company</h1>
+    <span class="heading-actions">
+        <a class="button button-secondary" asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
+        <a class="button button-danger" asp-action="Delete" asp-route-id="@Model.Id">Delete</a>
+    </span>
+</div>
+<p class="detail-role">@Model.RoleTitle</p>
+
+<dl class="detail-list">
+    <dt>Status</dt>
+    <dd><span class="status-pill">@Model.Status</span></dd>
+
+    @if (!string.IsNullOrEmpty(Model.Location))
+    {
+        <dt>Location</dt>
+        <dd>@Model.Location</dd>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.Url))
+    {
+        <dt>Posting</dt>
+        <dd><a href="@Model.Url" target="_blank" rel="noopener noreferrer">@Model.Url</a></dd>
+    }
+
+    <dt>Date saved</dt>
+    <dd>@Model.DateSaved.ToString("yyyy-MM-dd")</dd>
+
+    <dt>Date applied</dt>
+    <dd>@(Model.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</dd>
+
+    @if (Model.SalaryMin.HasValue || Model.SalaryMax.HasValue)
+    {
+        <dt>Salary range</dt>
+        <dd>
+            @if (Model.SalaryMin.HasValue && Model.SalaryMax.HasValue)
+            {
+                <text>$@Model.SalaryMin.Value.ToString("N0") – $@Model.SalaryMax.Value.ToString("N0")</text>
+            }
+            else if (Model.SalaryMin.HasValue)
+            {
+                <text>From $@Model.SalaryMin.Value.ToString("N0")</text>
+            }
+            else
+            {
+                <text>Up to $@Model.SalaryMax!.Value.ToString("N0")</text>
+            }
+        </dd>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.NextAction))
+    {
+        <dt>Next action</dt>
+        <dd>
+            @Model.NextAction
+            @if (Model.NextActionDue.HasValue)
+            {
+                <text> (due @Model.NextActionDue.Value.ToString("yyyy-MM-dd"))</text>
+            }
+        </dd>
+    }
+
+    @if (Model.ResumeVersion != null)
+    {
+        <dt>Resume used</dt>
+        <dd>@Model.ResumeVersion.Name</dd>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.Notes))
+    {
+        <dt>Notes</dt>
+        <dd class="notes-block">@Model.Notes</dd>
+    }
+
+    <dt>Last updated</dt>
+    <dd>@Model.UpdatedUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+</dl>
+
+<p><a asp-action="Index">&larr; Back to applications</a></p>

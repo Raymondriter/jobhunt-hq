@@ -1,0 +1,89 @@
+@model JobHuntHQ.Models.ApplicationsIndexViewModel
+@using JobHuntHQ.Models
+
+@{
+    ViewData["Title"] = "Applications";
+    var dueSoonLimit = Model.Today.AddDays(Model.DueSoonDays);
+}
+
+<div class="page-heading">
+    <h1>Applications</h1>
+    <a class="button" asp-action="Create">Add application</a>
+</div>
+
+<form method="get" class="filter-bar">
+    <label for="status">Status</label>
+    <select id="status" name="status">
+        <option value="">All statuses</option>
+        @foreach (var status in Enum.GetValues<ApplicationStatus>())
+        {
+            if (Model.StatusFilter == status)
+            {
+                <option value="@status" selected>@status</option>
+            }
+            else
+            {
+                <option value="@status">@status</option>
+            }
+        }
+    </select>
+    <button type="submit" class="button button-secondary">Filter</button>
+    @if (Model.StatusFilter.HasValue)
+    {
+        <a asp-action="Index">Clear</a>
+    }
+</form>
+
+@if (Model.Applications.Count == 0)
+{
+    <p class="empty-note">
+        Nothing here yet. <a asp-action="Create">Add your first application</a>
+        or <a asp-controller="Import" asp-action="Index">import a CSV</a>.
+    </p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Applied</th>
+                <th>Next action</th>
+                <th>Due</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var app in Model.Applications)
+            {
+                var dueClass = "";
+                if (app.NextActionDue.HasValue && !app.Status.IsClosed())
+                {
+                    if (app.NextActionDue.Value < Model.Today)
+                    {
+                        dueClass = "due-overdue";
+                    }
+                    else if (app.NextActionDue.Value <= dueSoonLimit)
+                    {
+                        dueClass = "due-soon";
+                    }
+                }
+                <tr>
+                    <td><a asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
+                    <td>@app.RoleTitle</td>
+                    <td><span class="status-pill">@app.Status</span></td>
+                    <td>@(app.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</td>
+                    <td>@(app.NextAction ?? "—")</td>
+                    <td class="@dueClass">@(app.NextActionDue?.ToString("yyyy-MM-dd") ?? "—")</td>
+                    <td class="row-actions">
+                        <a asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+                        <a asp-action="Delete" asp-route-id="@app.Id">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="table-note"><span class="due-overdue">Red</span> = overdue next action, <span class="due-soon">amber</span> = due within @Model.DueSoonDays days (open applications only).</p>
+}

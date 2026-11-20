@@ -1,0 +1,51 @@
+@{
+    ViewData["Title"] = "Import applications";
+}
+
+<h1>Import applications from CSV</h1>
+
+<p>
+    Upload a <code>.csv</code> file (up to 2 MB) with one application per row.
+    The first row must be a header row. Imported rows are added to
+    <em>your</em> applications — importing the same file twice will create
+    duplicates.
+</p>
+
+<h2>Expected format</h2>
+<p>Column names are matched case-insensitively. Only <strong>Company</strong> and <strong>Title</strong> are required; everything else is optional.</p>
+
+<table class="data-table format-table">
+    <thead>
+        <tr><th>Column</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Company</td><td>Required.</td></tr>
+        <tr><td>Title</td><td>Required. <code>RoleTitle</code> is accepted too.</td></tr>
+        <tr><td>Url</td><td>Link to the posting.</td></tr>
+        <tr><td>Location</td><td>Free text, e.g. "Remote (US)".</td></tr>
+        <tr><td>Status</td><td>One of Saved, Applied, Screening, Interview, Offer, Rejected, Ghosted, Withdrawn. Anything else imports as Saved with a warning.</td></tr>
+        <tr><td>DateApplied</td><td><code>yyyy-MM-dd</code> or <code>M/d/yyyy</code>. Also used as the saved date, since most trackers don't track one separately.</td></tr>
+        <tr><td>NextAction</td><td>Free text.</td></tr>
+        <tr><td>NextActionDue</td><td><code>yyyy-MM-dd</code> or <code>M/d/yyyy</code>.</td></tr>
+        <tr><td>SalaryMin</td><td>Whole dollars, e.g. <code>120000</code>.</td></tr>
+        <tr><td>SalaryMax</td><td>Whole dollars, e.g. <code>150000</code>.</td></tr>
+        <tr><td>ResumeName</td><td>Matched against your resume versions by name; unmatched names are ignored with a warning.</td></tr>
+        <tr><td>Notes</td><td>Free text.</td></tr>
+    </tbody>
+</table>
+
+<p>Example header + row:</p>
+<pre class="code-block">Company,Title,Status,DateApplied,SalaryMin,SalaryMax
+Example Corp,Senior Software Engineer,Applied,2026-11-01,120000,150000</pre>
+
+<form asp-action="Index" method="post" enctype="multipart/form-data" class="edit-form">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-row">
+        <label for="csvFile">CSV file</label>
+        <input type="file" id="csvFile" name="csvFile" accept=".csv" />
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="button">Import</button>
+        <a asp-controller="Applications" asp-action="Index">Cancel</a>
+    </div>
+</form>
