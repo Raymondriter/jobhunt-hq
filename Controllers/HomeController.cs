@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using JobHuntHQ.Data;
 using JobHuntHQ.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,14 +19,18 @@ public class HomeController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index()
+    public IActionResult Index()
     {
-        // Anonymous visitors get the landing page; signed-in users get their dashboard.
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            return View();
-        }
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToAction(nameof(Dashboard));
 
+        return View();
+    }
+
+    [Authorize]
+    [HttpGet("/dashboard")]
+    public async Task<IActionResult> Dashboard()
+    {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var mine = _context.JobApplications.Where(a => a.UserId == userId);
 
