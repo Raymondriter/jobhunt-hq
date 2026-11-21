@@ -11,7 +11,7 @@
         <div class="container header-inner">
             <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">JobHunt HQ</a>
             <nav class="site-nav">
-                <a asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                <a asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <a asp-area="" asp-controller="Applications" asp-action="Index">Applications</a>
