@@ -46,7 +46,7 @@ One deployable web app plus one small serverless piece:
   model against Azure SQL, full CRUD for applications with the status pipeline
   (Saved → Applied → Screening → Interview → Offer, plus Rejected / Ghosted /
   Withdrawn), next action + due date per application, resume-version tracking,
-  a per-user dashboard, and CSV import of real applications as seed data.
+  a per-user dashboard, and CSV import of tracker exports.
   Live since Nov 20, 2026: the database is passwordless (Entra-only auth; the
   app connects as its managed identity), the app applied its EF migrations at
   startup, and 37 real applications were imported from the tracker CSV.
@@ -68,7 +68,7 @@ One deployable web app plus one small serverless piece:
 - **Dashboard** — signed-in home page: counts per status, next actions due in
   the next 7 days, and the 5 most recently updated applications.
 - **CSV import** — bulk-add applications from a tracker export (format below).
-  A seed file built from a real tracker lives in `seed/`.
+  A [fictional demo CSV](seed/applications-seed.csv) contains four sample applications.
 
 ## CSV import format
 
@@ -129,7 +129,7 @@ Migrations/    EF Core migrations (InitialM2 creates Identity + app tables)
 Models/        EF Core entities, the status enum, and view models
 Services/      Small helpers (the hand-written CSV parser)
 Views/         Razor views — Shared/_Layout plus one folder per controller
-seed/          Seed CSV generated from a real applications tracker (+ notes)
+seed/          Fictional demo CSV and import instructions
 wwwroot/       Static files (css/site.css)
 Program.cs     Startup: services, Identity/EF wiring, migrate-at-startup, pipeline
 ```
