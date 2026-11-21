@@ -26,6 +26,18 @@ public class PrepareViewModel
     /// <summary>The generated bring-your-own-AI packet, as Markdown.</summary>
     public string PacketMarkdown { get; set; } = string.Empty;
 
+    /// <summary>ATS platform detected from the posting URL, for display (e.g. "Greenhouse", "Unknown").</summary>
+    public string AtsDetectedName { get; set; } = "Unknown";
+
+    /// <summary>The short self-contained starter prompt for the user's own AI (deep links + copy button).</summary>
+    public string AiShortPrompt { get; set; } = string.Empty;
+
+    /// <summary>Deep link opening a new ChatGPT chat with the short prompt. The packet itself is never in the URL.</summary>
+    public string ChatGptUrl { get; set; } = string.Empty;
+
+    /// <summary>Deep link opening a new Claude chat with the short prompt. The packet itself is never in the URL.</summary>
+    public string ClaudeUrl { get; set; } = string.Empty;
+
     /// <summary>Today, for overdue highlighting.</summary>
     public DateOnly Today { get; set; }
 }

@@ -6,9 +6,14 @@
 
 <h1>Add posting</h1>
 <p class="page-note">
-    Paste a posting and JobHunt HQ saves it as a Saved application and checks
-    it against <a asp-controller="Profile" asp-action="Index">your search profile</a> right away.
+    Paste a posting — or fetch it from its URL — and JobHunt HQ saves it as a
+    Saved application and checks it against
+    <a asp-controller="Profile" asp-action="Index">your search profile</a> right away.
 </p>
+@if (!string.IsNullOrWhiteSpace(Model.FetchNote))
+{
+    <p class="fetch-note">@Model.FetchNote</p>
+}
 
 <form asp-action="AddPosting" method="post" class="edit-form">
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
@@ -29,6 +34,18 @@
         <label asp-for="PostingUrl"></label>
         <input asp-for="PostingUrl" />
         <span asp-validation-for="PostingUrl" class="field-error"></span>
+    </div>
+
+    <div class="form-row button-row">
+        <button type="submit" class="button button-secondary"
+                formaction="@Url.Action("FetchPosting")" formnovalidate>
+            Fetch from URL
+        </button>
+        <span class="table-note">
+            Fills in the posting text from the page so you don't have to paste
+            it. Review and edit before saving — fetching never saves anything.
+            Some sites block fetching; pasting always works.
+        </span>
     </div>
 
     <div class="form-grid">

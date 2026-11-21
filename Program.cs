@@ -48,8 +48,15 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
 
 // M4: deterministic fit check + bring-your-own-AI packet generation.
+// Phase 2: resume PDF text extraction for the packet, and the SSRF-guarded
+// posting-page fetcher. Auto-redirect is disabled on the fetcher's handler
+// because PostingFetchService follows redirects manually, re-validating
+// every hop against its SSRF guards.
 builder.Services.AddScoped<FitCheckService>();
 builder.Services.AddScoped<AiPacketService>();
+builder.Services.AddScoped<ResumeTextService>();
+builder.Services.AddHttpClient<PostingFetchService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
 builder.Services.AddControllersWithViews();
 

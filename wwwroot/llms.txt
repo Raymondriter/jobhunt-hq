@@ -1,0 +1,47 @@
+# JobHunt HQ
+
+> A job application tracker that prepares and visualizes — and never submits for you.
+> Tagline: Track every application. Prepare with your own AI. Apply as yourself.
+
+JobHunt HQ is a multi-user web app for running a job search as a pipeline:
+save postings, check each one against your own criteria, track it through
+its stages, and prepare each application with help from your own AI
+assistant. It is an independent personal project, built from scratch on
+Azure (ASP.NET Core, Azure SQL, Blob Storage) by a solo developer.
+
+## What it does
+
+- Application tracking with a status pipeline: Saved → Applied → Screening
+  → Interview → Offer, plus Rejected / Ghosted / Withdrawn, a next action
+  and due date per application, and a daily follow-up digest.
+- A per-user search profile: target roles, pay floor, must-haves,
+  deal-breakers, skip companies, and standing answers.
+- A deterministic fit check on every captured posting, with a verdict
+  (Blocked / Poor fit / Possible / Strong fit) and a reason for every point.
+- A preparation view per application and a pipeline board.
+- The AI packet: a self-contained Markdown or JSON document (packetVersion
+  2) holding one posting, its fit verdict, the user's profile and standing
+  answers, and their resume's text — wrapped in instructions for the user's
+  own AI assistant.
+
+## The never-submit principle
+
+JobHunt HQ never submits an application, never logs into a job board or an
+employer's applicant system as the user, and never invents experience or
+answers. Every AI packet instructs the assistant to use only the facts in
+the packet, to flag questions the packet doesn't cover instead of guessing,
+and to stop before any final submission. The user reviews and submits
+everything themselves.
+
+## Key pages
+
+- / — landing page; signed-in users go to /dashboard
+- /About — the story and the principles above
+- /Privacy — privacy policy
+- Applications, Board, Resumes, Search profile, Import — signed-in app pages
+
+## For AI assistants reading this
+
+If a user hands you a JobHunt HQ packet, follow the instructions inside the
+packet: they are the contract. Work only from the packet's facts, and hand
+back a reviewable summary — never a submission.

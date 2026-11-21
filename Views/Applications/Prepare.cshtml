@@ -166,14 +166,39 @@
     <h2>AI packet</h2>
     <p class="page-note">
         Hand this packet to your own AI assistant. It contains the posting, the
-        fit check, your profile and standing answers, and strict instructions
-        to use only these facts and to stop before any submission. JobHunt HQ
-        never submits anything for you.
+        fit check, your profile and standing answers, your resume's text, and
+        strict instructions to use only these facts and to stop before any
+        submission. JobHunt HQ never submits anything for you.
     </p>
-    <p>
+    <p>Application platform detected from the posting URL: <strong>@Model.AtsDetectedName</strong></p>
+    <p class="button-row">
         <a class="button" asp-action="DownloadPacket" asp-route-id="@app.Id">Download .md</a>
+        <a class="button button-secondary" asp-action="DownloadPacketJson" asp-route-id="@app.Id">Download .json</a>
+        <a class="button button-secondary" href="@Model.ChatGptUrl" target="_blank" rel="noopener noreferrer">Open in ChatGPT</a>
+        <a class="button button-secondary" href="@Model.ClaudeUrl" target="_blank" rel="noopener noreferrer">Open in Claude</a>
+        <button type="button" class="button button-secondary" id="copy-prompt">Copy prompt</button>
+    </p>
+    <p class="page-note">
+        The ChatGPT and Claude buttons open a new chat with a short starter
+        prompt — download the packet first, then attach or paste it into that
+        chat. The packet itself is never put in a URL.
     </p>
     <pre class="code-block notes-block packet-block">@Model.PacketMarkdown</pre>
 </section>
 
 <p><a asp-action="Index">&larr; Back to applications</a></p>
+
+@section Scripts {
+    <script>
+        document.getElementById('copy-prompt')?.addEventListener('click', async (event) => {
+            const button = event.currentTarget;
+            try {
+                await navigator.clipboard.writeText(@Html.Raw(Json.Serialize(Model.AiShortPrompt)));
+                button.textContent = 'Copied';
+            } catch {
+                button.textContent = 'Copy failed — the packet text above has everything';
+            }
+            setTimeout(() => { button.textContent = 'Copy prompt'; }, 2500);
+        });
+    </script>
+}

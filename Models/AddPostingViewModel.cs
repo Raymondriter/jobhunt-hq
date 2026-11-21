@@ -32,4 +32,7 @@ public class AddPostingViewModel
     [Display(Name = "Pay max (annual, if listed)")]
     [Range(0, int.MaxValue, ErrorMessage = "Pay can't be negative.")]
     public int? PayMax { get; set; }
+
+    /// <summary>Outcome note from a "Fetch from URL" round-trip (success or friendly failure). Display only — never saved.</summary>
+    public string? FetchNote { get; set; }
 }

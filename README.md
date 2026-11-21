@@ -9,6 +9,29 @@ next action with a due date, and see the whole search on one dashboard.
 
 **Live:** https://app-jobtracker-riter-h9gph8h2bgd4ddbm.westus2-01.azurewebsites.net/
 
+## The story
+
+JobHunt HQ was built from scratch on Azure by a solo developer — partly as a
+hands-on way to learn cloud development with something real that he owns and
+can maintain, and partly as an exercise in starting a small product and brand
+from nothing. It is an independent personal project.
+
+The idea came from the builder's own job search, where his AI assistant helps
+him find postings, check them against his criteria, and prepare applications
+— while he reviews and submits every one himself. JobHunt HQ packages the
+preparation half of that workflow for anyone: track the pipeline, check the
+fit, and export an **AI packet** your own AI assistant can work from.
+
+One principle runs through the whole product: **JobHunt HQ never submits an
+application for you.** It prepares and visualizes; you and your AI do the
+rest, and you always press submit.
+
+## Brand
+
+Name, tagline, palette, typography, voice, and logo rules live in
+[brand.md](brand.md). The short version: *Track every application. Prepare
+with your own AI. Apply as yourself.*
+
 ## Stack
 
 - **ASP.NET Core (.NET 10 LTS)** — MVC, Razor views, ASP.NET Core Identity, EF Core

@@ -16,12 +16,18 @@ public class ApplicationsController : Controller
     private readonly ApplicationDbContext _context;
     private readonly FitCheckService _fitCheck;
     private readonly AiPacketService _packet;
+    private readonly PostingFetchService _postingFetch;
 
-    public ApplicationsController(ApplicationDbContext context, FitCheckService fitCheck, AiPacketService packet)
+    public ApplicationsController(
+        ApplicationDbContext context,
+        FitCheckService fitCheck,
+        AiPacketService packet,
+        PostingFetchService postingFetch)
     {
         _context = context;
         _fitCheck = fitCheck;
         _packet = packet;
+        _postingFetch = postingFetch;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -223,6 +229,36 @@ public class ApplicationsController : Controller
         return RedirectToAction(nameof(Details), new { id = application.Id });
     }
 
+    // POST: Applications/FetchPosting — "Fetch from URL" on the Add posting
+    // page. Fetches the posting page server-side (SSRF-guarded, see
+    // PostingFetchService) and fills the form for review. NEVER saves.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> FetchPosting(AddPostingViewModel model)
+    {
+        var result = await _postingFetch.FetchAsync(model.PostingUrl);
+        if (result.Success)
+        {
+            model.PostingText = result.Text;
+            if (string.IsNullOrWhiteSpace(model.JobTitle) && !string.IsNullOrWhiteSpace(result.Title))
+            {
+                model.JobTitle = result.Title;
+            }
+            model.FetchNote = PostingFetchService.SuccessMessage;
+        }
+        else
+        {
+            model.FetchNote = PostingFetchService.FailureMessage;
+        }
+
+        // The view renders inputs from ModelState's attempted values when
+        // present — drop the entries we just filled server-side so the
+        // fetched values show.
+        ModelState.Remove(nameof(model.PostingText));
+        ModelState.Remove(nameof(model.JobTitle));
+        return View(nameof(AddPosting), model);
+    }
+
     // POST: Applications/RecheckFit/5 — re-run the fit check on demand
     // (e.g. after the search profile changed).
     [HttpPost]
@@ -264,10 +300,42 @@ public class ApplicationsController : Controller
             return NotFound();
         }
 
-        var model = await BuildPrepareModelAsync(application);
-        var bytes = Encoding.UTF8.GetBytes(model.PacketMarkdown);
+        var packet = await BuildPacketDataAsync(application);
+        var bytes = Encoding.UTF8.GetBytes(_packet.BuildMarkdown(packet));
         var fileName = $"{SanitizeFileName(application.Company)}-{SanitizeFileName(application.RoleTitle)}-ai-packet.md";
         return File(bytes, "text/markdown; charset=utf-8", fileName);
+    }
+
+    // GET: Applications/DownloadPacketJson/5 — the same packet as structured
+    // JSON, for programmatic agents.
+    public async Task<IActionResult> DownloadPacketJson(int id)
+    {
+        var application = await FindMineAsync(id);
+        if (application == null)
+        {
+            return NotFound();
+        }
+
+        var packet = await BuildPacketDataAsync(application);
+        var bytes = Encoding.UTF8.GetBytes(_packet.BuildJson(packet));
+        var fileName = $"{SanitizeFileName(application.Company)}-{SanitizeFileName(application.RoleTitle)}-ai-packet.json";
+        return File(bytes, "application/json; charset=utf-8", fileName);
+    }
+
+    /// <summary>Assembles the packet data: profile, chosen resume (+ text extraction), duplicate-company count.</summary>
+    private async Task<AiPacketData> BuildPacketDataAsync(JobApplication application)
+    {
+        var profile = await GetMyProfileAsync();
+        var chosenResume = application.ResumeVersion ?? await _context.ResumeVersions
+            .Where(r => r.UserId == CurrentUserId)
+            .OrderByDescending(r => r.CreatedUtc)
+            .FirstOrDefaultAsync();
+        var otherApplicationsAtCompany = await _context.JobApplications
+            .CountAsync(a => a.UserId == CurrentUserId
+                             && a.Id != application.Id
+                             && a.Company == application.Company);
+
+        return await _packet.BuildPacketAsync(application, profile, chosenResume, otherApplicationsAtCompany);
     }
 
     private async Task<PrepareViewModel> BuildPrepareModelAsync(JobApplication application)
@@ -277,16 +345,21 @@ public class ApplicationsController : Controller
             .Where(r => r.UserId == CurrentUserId)
             .OrderByDescending(r => r.CreatedUtc)
             .ToListAsync();
-        var chosenResume = application.ResumeVersion ?? resumes.FirstOrDefault();
+        var packet = await BuildPacketDataAsync(application);
+        var shortPrompt = AiPacketService.BuildShortPrompt(application);
 
         return new PrepareViewModel
         {
             Application = application,
             Profile = profile,
             Resumes = resumes,
-            ChosenResume = chosenResume,
+            ChosenResume = packet.Resume,
             MustHaveChecks = _fitCheck.CheckMustHaves(profile, application.PostingText),
-            PacketMarkdown = _packet.BuildMarkdown(application, profile, chosenResume),
+            PacketMarkdown = _packet.BuildMarkdown(packet),
+            AtsDetectedName = packet.AtsName,
+            AiShortPrompt = shortPrompt,
+            ChatGptUrl = "https://chatgpt.com/?q=" + Uri.EscapeDataString(shortPrompt),
+            ClaudeUrl = "https://claude.ai/new?q=" + Uri.EscapeDataString(shortPrompt),
             Today = DateOnly.FromDateTime(DateTime.Today)
         };
     }

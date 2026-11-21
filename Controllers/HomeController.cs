@@ -72,6 +72,11 @@ public class HomeController : Controller
         return View("Dashboard", model);
     }
 
+    public IActionResult About()
+    {
+        return View();
+    }
+
     public IActionResult Privacy()
     {
         return View();

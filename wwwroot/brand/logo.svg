@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="96" viewBox="0 0 360 96" role="img" aria-label="JobHunt HQ">
+  <rect x="8" y="16" width="64" height="64" rx="14" fill="#0f5e8c"/>
+  <text x="40" y="59" font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="27" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="1">JH</text>
+  <text x="88" y="61" font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700" fill="#1c2430" letter-spacing="-0.5">JobHunt HQ</text>
+</svg>
