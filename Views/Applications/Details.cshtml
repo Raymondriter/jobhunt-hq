@@ -15,7 +15,7 @@
 
 <dl class="detail-list">
     <dt>Status</dt>
-    <dd><span class="status-pill">@Model.Status</span></dd>
+    <dd><span class="status-pill status-pill-@Model.Status.ToString().ToLowerInvariant()">@Model.Status</span></dd>
 
     @if (!string.IsNullOrEmpty(Model.Location))
     {

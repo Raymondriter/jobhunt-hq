@@ -73,7 +73,7 @@ else
                 <tr>
                     <td><a asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
                     <td>@app.RoleTitle</td>
-                    <td><span class="status-pill">@app.Status</span></td>
+                    <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
                     <td>@(app.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</td>
                     <td>@(app.NextAction ?? "—")</td>
                     <td class="@dueClass">@(app.NextActionDue?.ToString("yyyy-MM-dd") ?? "—")</td>

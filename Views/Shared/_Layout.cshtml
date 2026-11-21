@@ -9,7 +9,7 @@
 <body>
     <header class="site-header">
         <div class="container header-inner">
-            <a class="brand" asp-area="" asp-controller="Home" asp-action="Index">JobHunt HQ</a>
+            <a class="brand" asp-area="" asp-controller="Home" asp-action="Index"><span class="brand-mark" aria-hidden="true">JH</span><span class="brand-text">JobHunt HQ<small class="brand-tagline">Track every application</small></span></a>
             <nav class="site-nav">
                 <a asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
                 @if (User.Identity?.IsAuthenticated == true)
@@ -30,7 +30,7 @@
 
     <footer class="site-footer">
         <div class="container">
-            &copy; 2026 JobHunt HQ &middot; <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2026 JobHunt HQ &middot; Track every application, never miss a follow-up. &middot; <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
 

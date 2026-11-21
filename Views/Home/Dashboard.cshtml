@@ -13,9 +13,9 @@
 <section class="dashboard-counts">
     @foreach (var status in Enum.GetValues<ApplicationStatus>())
     {
-        <a class="count-card" asp-controller="Applications" asp-action="Index" asp-route-status="@status">
+        <a class="count-card count-card-@status.ToString().ToLowerInvariant()" asp-controller="Applications" asp-action="Index" asp-route-status="@status">
             <span class="count-number">@Model.StatusCounts[status]</span>
-            <span class="count-label">@status</span>
+            <span class="count-label"><span class="count-dot" aria-hidden="true"></span>@status</span>
         </a>
     }
 </section>
@@ -80,7 +80,7 @@
                     <tr>
                         <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
                         <td>@app.RoleTitle</td>
-                        <td><span class="status-pill">@app.Status</span></td>
+                        <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
                         <td>@app.UpdatedUtc.ToString("yyyy-MM-dd")</td>
                     </tr>
                 }

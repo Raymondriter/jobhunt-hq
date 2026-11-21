@@ -8,6 +8,16 @@
     --line: #dde3e9;
     --panel: #f6f8fa;
     --badge: #e8edf1;
+    /* Status palette (Bootstrap 5 hues) — one accent family for pills,
+       pipeline stages, and dashboard cards. */
+    --status-saved: #6c757d;
+    --status-applied: #0d6efd;
+    --status-screening: #0aa2c0;
+    --status-interview: #e0a800;
+    --status-offer: #198754;
+    --status-rejected: #dc3545;
+    --status-ghosted: #212529;
+    --status-withdrawn: #adb5bd;
 }
 
 * {
@@ -61,6 +71,9 @@ a:hover {
 }
 
 .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--ink);
@@ -69,6 +82,33 @@ a:hover {
 .brand:hover {
     color: var(--accent);
     text-decoration: none;
+}
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.brand-text {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.brand-tagline {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.02em;
 }
 
 .site-nav a {
@@ -102,6 +142,23 @@ a:hover {
 .hero {
     text-align: center;
     padding: 2.5rem 0 1.5rem;
+}
+
+.hero-eyebrow {
+    margin: 0 0 0.5rem;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.features-section {
+    margin-top: 2.5rem;
+}
+
+.features-section .features {
+    margin-top: 1rem;
 }
 
 .hero h1 {
@@ -163,9 +220,25 @@ a:hover {
     color: var(--muted);
 }
 
+.pipeline .stage-saved {
+    border-top: 3px solid var(--status-saved);
+}
+
+.pipeline .stage-applied {
+    border-top: 3px solid var(--status-applied);
+}
+
+.pipeline .stage-screening {
+    border-top: 3px solid var(--status-screening);
+}
+
+.pipeline .stage-interview {
+    border-top: 3px solid var(--status-interview);
+}
+
 .pipeline .stage-final {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--status-offer);
+    border-color: var(--status-offer);
     color: #fff;
 }
 
@@ -425,8 +498,48 @@ a:hover {
     padding: 0.1rem 0.6rem;
     border-radius: 999px;
     background: var(--badge);
+    color: #fff;
     font-size: 0.85rem;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Bootstrap-hue mapping: Saved=secondary, Applied=primary, Screening=info,
+   Interview=warning, Offer=success, Rejected=danger, Ghosted=dark,
+   Withdrawn=light/muted. */
+.status-pill-saved {
+    background: var(--status-saved);
+}
+
+.status-pill-applied {
+    background: var(--status-applied);
+}
+
+.status-pill-screening {
+    background: var(--status-screening);
+}
+
+.status-pill-interview {
+    background: #ffc107;
+    color: var(--ink);
+}
+
+.status-pill-offer {
+    background: var(--status-offer);
+}
+
+.status-pill-rejected {
+    background: var(--status-rejected);
+}
+
+.status-pill-ghosted {
+    background: var(--status-ghosted);
+}
+
+.status-pill-withdrawn {
+    background: #f8f9fa;
+    color: var(--muted);
+    border: 1px solid var(--line);
 }
 
 .due-overdue {
@@ -580,6 +693,33 @@ a:hover {
     border-color: var(--accent);
     text-decoration: none;
 }
+
+.count-card-saved { border-top: 3px solid var(--status-saved); }
+.count-card-applied { border-top: 3px solid var(--status-applied); }
+.count-card-screening { border-top: 3px solid var(--status-screening); }
+.count-card-interview { border-top: 3px solid var(--status-interview); }
+.count-card-offer { border-top: 3px solid var(--status-offer); }
+.count-card-rejected { border-top: 3px solid var(--status-rejected); }
+.count-card-ghosted { border-top: 3px solid var(--status-ghosted); }
+.count-card-withdrawn { border-top: 3px solid var(--status-withdrawn); }
+
+.count-dot {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+    background: var(--badge);
+}
+
+.count-card-saved .count-dot { background: var(--status-saved); }
+.count-card-applied .count-dot { background: var(--status-applied); }
+.count-card-screening .count-dot { background: var(--status-screening); }
+.count-card-interview .count-dot { background: var(--status-interview); }
+.count-card-offer .count-dot { background: var(--status-offer); }
+.count-card-rejected .count-dot { background: var(--status-rejected); }
+.count-card-ghosted .count-dot { background: var(--status-ghosted); }
+.count-card-withdrawn .count-dot { background: var(--status-withdrawn); }
 
 .count-number {
     font-size: 1.6rem;
