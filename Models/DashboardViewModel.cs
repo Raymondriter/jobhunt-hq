@@ -9,7 +9,9 @@ public class DashboardViewModel
 
     public int TotalApplications { get; set; }
 
-    /// <summary>Open applications whose next action is due between today and +7 days.</summary>
+    public DateOnly Today { get; set; }
+
+    /// <summary>Open applications with an overdue next action or one due within seven days.</summary>
     public List<JobApplication> DueSoon { get; set; } = new();
 
     /// <summary>The 5 most recently updated applications.</summary>

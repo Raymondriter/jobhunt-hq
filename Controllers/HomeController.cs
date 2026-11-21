@@ -41,14 +41,13 @@ public class HomeController : Controller
         var weekOut = today.AddDays(7);
 
         var dueSoon = await mine
-            .Include(a => a.ResumeVersion)
             .Where(a => a.NextActionDue != null
-                        && a.NextActionDue >= today
                         && a.NextActionDue <= weekOut
                         && a.Status != ApplicationStatus.Rejected
                         && a.Status != ApplicationStatus.Ghosted
                         && a.Status != ApplicationStatus.Withdrawn)
             .OrderBy(a => a.NextActionDue)
+            .ThenBy(a => a.Id)
             .ToListAsync();
 
         var recent = await mine
@@ -62,6 +61,7 @@ public class HomeController : Controller
             StatusCounts = statusCounts,
             TotalApplications = statusCounts.Values.Sum(),
             DueSoon = dueSoon,
+            Today = today,
             RecentlyUpdated = recent
         };
         return View("Dashboard", model);

@@ -22,10 +22,10 @@
 <p class="table-note">@Model.TotalApplications applications tracked in total.</p>
 
 <section class="dashboard-section">
-    <h2>Due in the next 7 days</h2>
+    <h2>Overdue and upcoming follow-ups</h2>
     @if (Model.DueSoon.Count == 0)
     {
-        <p class="empty-note">Nothing due this week. Enjoy the quiet — or line up the next follow-up.</p>
+        <p class="empty-note">No overdue follow-ups or actions due in the next 7 days.</p>
     }
     else
     {
@@ -36,11 +36,22 @@
             <tbody>
                 @foreach (var app in Model.DueSoon)
                 {
+                    var overdue = app.NextActionDue < Model.Today;
                     <tr>
                         <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
                         <td>@app.RoleTitle</td>
                         <td>@app.NextAction</td>
-                        <td class="due-soon">@app.NextActionDue?.ToString("yyyy-MM-dd")</td>
+                        <td class="@(overdue ? "due-overdue" : "due-soon")">
+                            @app.NextActionDue?.ToString("yyyy-MM-dd")
+                            @if (overdue)
+                            {
+                                <span> (overdue)</span>
+                            }
+                            else if (app.NextActionDue == Model.Today)
+                            {
+                                <span> (today)</span>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
