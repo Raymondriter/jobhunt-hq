@@ -1,0 +1,1 @@
+{"logging":{"applicationInsights":{"enableLiveMetricsFilters":true,"samplingSettings":{"excludedTypes":"Request","isEnabled":true}},"logLevel":{"Function":"Information","Microsoft":"Warning","System":"Warning","default":"Information"}},"version":"2.0"}

@@ -33,7 +33,7 @@ One deployable web app plus one small serverless piece:
 | App Service (F1) | Hosts the ASP.NET Core MVC app (UI + a few JSON endpoints). Sleeps when idle on the free tier. |
 | Azure SQL (serverless) | Application data via EF Core. Auto-pauses when idle and at the free monthly limit. |
 | Blob Storage | Resume PDFs in a private container; the app serves downloads itself — no public links. |
-| Functions (Consumption) | Daily 8:00 AM ET timer: find follow-ups due in the next 48 hours and email a digest. |
+| Functions (Consumption) | Daily 12:00 UTC timer (≈ morning US Eastern): find follow-ups due in the next 7 days and email each user a digest. |
 | Key Vault | SQL connection string and email key, read via managed identity. |
 | Application Insights | Telemetry with adaptive sampling and a daily ingestion cap. |
 
@@ -50,10 +50,46 @@ One deployable web app plus one small serverless piece:
   Live since Nov 20, 2026: the database is passwordless (Entra-only auth; the
   app connects as its managed identity), the app applied its EF migrations at
   startup, and 37 real applications were imported from the tracker CSV.
-- **M3 — Cloud-native pieces**: resume uploads to Blob tied to applications,
-  the daily reminder Function emailing a digest (Azure Communication Services
-  Email), secrets moved to Key Vault behind managed identity, and an App
-  Insights dashboard.
+- **M3 — Cloud-native pieces** *(in progress)*: resume PDF uploads to Blob
+  Storage tied to resume versions, the daily reminder Function emailing a
+  digest (Azure Communication Services Email), secrets moved to Key Vault
+  behind managed identity, and Application Insights telemetry. The code for
+  all of this is in the repo (see "M3 features" below); the Azure resources
+  are being wired up to it.
+
+## M3 features
+
+- **Resume files in Blob Storage** — each resume version can carry its PDF
+  (PDF only, 10 MB max) in a private `resumes` container. Files are uploaded,
+  replaced, downloaded, and removed from the Resumes page, and are only ever
+  served back through the app after an ownership check — there are no public
+  links. Blob names follow `{userId}/{resumeVersionId}/{guid}.pdf`.
+- **Daily digest Function** — `JobHuntHQ.Functions/` is a separate .NET 10
+  isolated-worker Function app: a timer trigger (12:00 UTC daily) finds
+  follow-ups due within 7 days, groups them per user, and emails each user
+  their digest via Azure Communication Services Email. See its own README.
+- **Application Insights** — the web app sends request/exception telemetry
+  via `AddApplicationInsightsTelemetry()`; the connection string comes from
+  the `APPLICATIONINSIGHTS_CONNECTION_STRING` app setting. The Function does
+  the same for the worker process.
+- **Key Vault for secrets** — the one secret-shaped value left (the ACS
+  email connection string) is delivered to the Function as a Key Vault
+  reference app setting, read via managed identity.
+
+### The passwordless pattern
+
+M3 keeps the rule M2 established — **no passwords, keys, or hard-coded
+secrets anywhere**:
+
+- SQL: Entra-only database auth; both the web app and the Function connect
+  as their managed identities (`Authentication=Active Directory Managed
+  Identity` in the connection string; `AZURE_CLIENT_ID` selects the
+  user-assigned identity). There is no SQL password.
+- Blob Storage: the web app authenticates with `DefaultAzureCredential`
+  (its managed identity in Azure) — no storage account keys.
+- Email: the ACS connection string exists only as a Key Vault reference.
+- App Insights connection strings are identifiers, not secrets, and still
+  live only in app settings, never in code.
 
 ## M2 features
 
@@ -63,8 +99,8 @@ One deployable web app plus one small serverless piece:
 - **Applications** — full CRUD with a status filter, overdue / due-soon
   highlighting on next-action due dates, and an optional link to the resume
   version used.
-- **Resumes** — resume versions tracked by name + notes. Metadata only for
-  now; file upload to Blob Storage is M3.
+- **Resumes** — resume versions tracked by name + notes, each optionally
+  carrying its PDF file in Blob Storage (M3, below).
 - **Dashboard** — signed-in home page: counts per status, next actions due in
   the next 7 days, and the 5 most recently updated applications.
 - **CSV import** — bulk-add applications from a tracker export (format below).
@@ -125,11 +161,14 @@ Center is connected.
 ```
 Controllers/   MVC controllers (Home, Applications, Resumes, Import)
 Data/          ApplicationDbContext + design-time factory for the EF tools
-Migrations/    EF Core migrations (InitialM2 creates Identity + app tables)
+Migrations/    EF Core migrations (InitialM2: Identity + app tables;
+               AddResumeFile: resume file columns)
 Models/        EF Core entities, the status enum, and view models
-Services/      Small helpers (the hand-written CSV parser)
+Services/      Small helpers (the hand-written CSV parser, Blob resume storage)
 Views/         Razor views — Shared/_Layout plus one folder per controller
 seed/          Seed CSV generated from a real applications tracker (+ notes)
 wwwroot/       Static files (css/site.css)
 Program.cs     Startup: services, Identity/EF wiring, migrate-at-startup, pipeline
+JobHuntHQ.Functions/  Separate Function app (daily digest) — its own project
+               and deployment; see JobHuntHQ.Functions/README.md
 ```

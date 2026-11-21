@@ -3,8 +3,10 @@ using System.ComponentModel.DataAnnotations;
 namespace JobHuntHQ.Models;
 
 /// <summary>
-/// A named resume version. For now this is metadata only — the actual file
-/// upload to Azure Blob Storage arrives in M3.
+/// A named resume version, optionally with its PDF file stored in Azure Blob
+/// Storage (M3). The file fields below stay null until a file is uploaded;
+/// the blob itself lives in a private container and is only ever served
+/// through this app, never via a public link.
 /// </summary>
 public class ResumeVersion
 {
@@ -22,4 +24,17 @@ public class ResumeVersion
     public string? Notes { get; set; }
 
     public DateTime CreatedUtc { get; set; }
+
+    /// <summary>Original file name of the uploaded PDF (e.g. "resume-2026.pdf"), for display and download.</summary>
+    [StringLength(260)]
+    public string? FileName { get; set; }
+
+    /// <summary>Blob name inside the resumes container: "{userId}/{resumeVersionId}/{guid}.pdf".</summary>
+    [StringLength(400)]
+    public string? BlobName { get; set; }
+
+    [StringLength(100)]
+    public string? ContentType { get; set; }
+
+    public long? SizeBytes { get; set; }
 }

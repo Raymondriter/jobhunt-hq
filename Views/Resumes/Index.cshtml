@@ -2,6 +2,10 @@
 
 @{
     ViewData["Title"] = "Resumes";
+
+    string FormatSize(long bytes) => bytes >= 1024 * 1024
+        ? $"{bytes / 1024d / 1024d:0.0} MB"
+        : $"{Math.Max(1, bytes / 1024)} KB";
 }
 
 <div class="page-heading">
@@ -10,10 +14,15 @@
 </div>
 
 <p class="page-note">
-    Resume versions are tracked by name and notes for now. File upload to cloud
-    storage arrives in the next milestone — until then, keep the actual files
-    wherever you keep them today and record which version went where.
+    Each resume version can carry its PDF file, stored privately in Azure Blob
+    Storage and served only through this app — upload it here, then record on
+    each application which version went where.
 </p>
+
+@if (TempData["FileError"] is string fileError)
+{
+    <p class="file-error">@fileError</p>
+}
 
 @if (Model.Count == 0)
 {
@@ -27,6 +36,7 @@ else
                 <th>Name</th>
                 <th>Notes</th>
                 <th>Added</th>
+                <th>File</th>
                 <th></th>
             </tr>
         </thead>
@@ -37,8 +47,32 @@ else
                     <td>@resume.Name</td>
                     <td>@(resume.Notes ?? "—")</td>
                     <td>@resume.CreatedUtc.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        @if (resume.BlobName != null)
+                        {
+                            <a asp-action="Download" asp-route-id="@resume.Id">@(resume.FileName ?? "resume.pdf")</a>
+                            @if (resume.SizeBytes is long size)
+                            {
+                                <span class="file-meta">@FormatSize(size)</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="file-meta">No file uploaded</span>
+                        }
+                        <form class="file-upload-form" asp-action="Upload" asp-route-id="@resume.Id" method="post" enctype="multipart/form-data">
+                            <input type="file" name="file" accept=".pdf,application/pdf" />
+                            <button type="submit" class="button button-secondary">@(resume.BlobName != null ? "Replace" : "Upload")</button>
+                        </form>
+                    </td>
                     <td class="row-actions">
                         <a asp-action="Edit" asp-route-id="@resume.Id">Edit</a>
+                        @if (resume.BlobName != null)
+                        {
+                            <form asp-action="DeleteFile" asp-route-id="@resume.Id" method="post">
+                                <button type="submit" class="link-button">Remove file</button>
+                            </form>
+                        }
                         <a asp-action="Delete" asp-route-id="@resume.Id">Delete</a>
                     </td>
                 </tr>

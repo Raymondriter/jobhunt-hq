@@ -1,10 +1,29 @@
+using Azure.Identity;
+using Azure.Storage.Blobs;
 using JobHuntHQ.Data;
+using JobHuntHQ.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+// Application Insights (M3). The connection string comes from the
+// APPLICATIONINSIGHTS_CONNECTION_STRING app setting in Azure — nothing is
+// hard-coded. Registration is conditional on a connection string being
+// configured: the 3.x (OpenTelemetry-based) exporter throws at startup when
+// none is set, unlike the classic 2.x SDK which quietly disabled itself.
+// With this guard the app runs everywhere; in Azure, where the setting
+// exists, telemetry flows.
+var appInsightsConfigured =
+    !string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"])
+    || !string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:ConnectionString"]);
+if (appInsightsConfigured)
+{
+    builder.Services.AddApplicationInsightsTelemetry();
+}
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -12,6 +31,21 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// Blob Storage for resume PDFs (M3). Authentication is DefaultAzureCredential:
+// in Azure the AZURE_CLIENT_ID app setting points it at this app's
+// user-assigned managed identity, so there are no storage account keys
+// anywhere; locally it falls back to developer credentials (Azure CLI /
+// Visual Studio sign-in). The client is only constructed here — no token is
+// requested until the first blob call, so the app starts fine without one.
+builder.Services.Configure<BlobStorageOptions>(
+    builder.Configuration.GetSection(BlobStorageOptions.SectionName));
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<BlobStorageOptions>>().Value;
+    return new BlobServiceClient(new Uri(options.ServiceUri), new DefaultAzureCredential());
+});
+builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
 
 builder.Services.AddControllersWithViews();
 

@@ -7,7 +7,20 @@
     <RootNamespace>JobHuntHQ</RootNamespace>
   </PropertyGroup>
 
+  <!-- The Functions project lives in a subfolder with its own csproj; keep its
+       sources (and build output) out of this project's default globbing. -->
   <ItemGroup>
+    <Compile Remove="JobHuntHQ.Functions\**" />
+    <Content Remove="JobHuntHQ.Functions\**" />
+    <None Remove="JobHuntHQ.Functions\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- M3: Blob Storage (resume PDFs), Identity (DefaultAzureCredential for the
+         managed-identity flow), Application Insights telemetry. -->
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.30.2" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="3.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
