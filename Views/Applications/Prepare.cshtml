@@ -1,0 +1,179 @@
+@model JobHuntHQ.Models.PrepareViewModel
+@using JobHuntHQ.Models
+
+@{
+    var app = Model.Application;
+    ViewData["Title"] = $"Prepare — {app.Company}";
+    var fitSlug = (app.FitVerdict ?? "not-checked").ToLowerInvariant().Replace(" ", "-");
+    var dueClass = "";
+    if (app.NextActionDue.HasValue && !app.Status.IsClosed())
+    {
+        dueClass = app.NextActionDue.Value < Model.Today ? "due-overdue" : "";
+    }
+}
+
+<div class="page-heading">
+    <h1>Prepare: @app.Company</h1>
+    <span class="heading-actions">
+        <a class="button button-secondary" asp-action="Details" asp-route-id="@app.Id">Details</a>
+        <a class="button button-secondary" asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+    </span>
+</div>
+<p class="detail-role">@app.RoleTitle</p>
+
+<section class="dashboard-section">
+    <h2>Fit check</h2>
+    <p>
+        <span class="status-pill fit-pill fit-@fitSlug">@(app.FitVerdict ?? "Not checked")</span>
+    </p>
+    @if (!string.IsNullOrWhiteSpace(app.FitReasons))
+    {
+        <ul class="fit-reasons">
+            @foreach (var line in app.FitReasons.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                <li>@line</li>
+            }
+        </ul>
+    }
+    <form asp-action="RecheckFit" asp-route-id="@app.Id" method="post">
+        <button type="submit" class="button button-secondary">Re-check fit</button>
+    </form>
+</section>
+
+<section class="dashboard-section">
+    <h2>The posting</h2>
+    <dl class="detail-list">
+        <dt>Status</dt>
+        <dd><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></dd>
+        @if (!string.IsNullOrWhiteSpace(app.PostingUrl ?? app.Url))
+        {
+            <dt>Posting</dt>
+            <dd><a href="@(app.PostingUrl ?? app.Url)" target="_blank" rel="noopener noreferrer">@(app.PostingUrl ?? app.Url)</a></dd>
+        }
+        @if (app.PayMin.HasValue || app.PayMax.HasValue)
+        {
+            <dt>Pay listed</dt>
+            <dd>
+                @if (app.PayMin.HasValue && app.PayMax.HasValue)
+                {
+                    <text>$@app.PayMin.Value.ToString("N0") – $@app.PayMax.Value.ToString("N0")</text>
+                }
+                else if (app.PayMin.HasValue)
+                {
+                    <text>From $@app.PayMin.Value.ToString("N0")</text>
+                }
+                else
+                {
+                    <text>Up to $@app.PayMax!.Value.ToString("N0")</text>
+                }
+            </dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(app.NextAction))
+        {
+            <dt>Next action</dt>
+            <dd class="@dueClass">
+                @app.NextAction
+                @if (app.NextActionDue.HasValue)
+                {
+                    <text> (due @app.NextActionDue.Value.ToString("yyyy-MM-dd"))</text>
+                }
+            </dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(app.Notes))
+        {
+            <dt>Notes</dt>
+            <dd class="notes-block">@app.Notes</dd>
+        }
+    </dl>
+    @if (!string.IsNullOrWhiteSpace(app.PostingText))
+    {
+        <pre class="code-block notes-block posting-text">@app.PostingText</pre>
+    }
+    else
+    {
+        <p class="empty-note">No posting text captured yet — <a asp-action="Edit" asp-route-id="@app.Id">paste it in</a> to unlock the must-have checklist.</p>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>Must-have checklist</h2>
+    @if (Model.Profile is null)
+    {
+        <p class="empty-note">No <a asp-controller="Profile" asp-action="Index">search profile</a> yet — create one and add must-haves to see them checked here.</p>
+    }
+    else if (Model.MustHaveChecks.Count == 0)
+    {
+        <p class="empty-note">Your profile lists no must-haves — <a asp-controller="Profile" asp-action="Edit">add some</a> and they'll be checked against the posting here.</p>
+    }
+    else
+    {
+        <ul class="check-list">
+            @foreach (var check in Model.MustHaveChecks)
+            {
+                <li class="@(check.IsPresent ? "check-present" : "check-missing")">
+                    <span class="check-mark" aria-hidden="true">@(check.IsPresent ? "✓" : "✗")</span>
+                    @check.Keyword — @(check.IsPresent ? "in the posting" : "not mentioned")
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>Standing answers</h2>
+    @if (Model.Profile is null || string.IsNullOrWhiteSpace(Model.Profile.StandingAnswers))
+    {
+        <p class="empty-note">No standing answers saved — <a asp-controller="Profile" asp-action="Edit">add them to your search profile</a> and they'll be here, ready to copy.</p>
+    }
+    else
+    {
+        <pre class="code-block notes-block">@Model.Profile.StandingAnswers</pre>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>Resumes</h2>
+    @if (Model.Resumes.Count == 0)
+    {
+        <p class="empty-note">No resume versions yet — <a asp-controller="Resumes" asp-action="Index">add one</a>.</p>
+    }
+    else
+    {
+        <ul class="resume-list">
+            @foreach (var resume in Model.Resumes)
+            {
+                <li>
+                    <strong>@resume.Name</strong>
+                    @if (Model.ChosenResume?.Id == resume.Id)
+                    {
+                        <span class="status-badge status-active">Used for this packet</span>
+                    }
+                    @if (resume.FileName is not null)
+                    {
+                        <span class="file-meta">File uploaded: @resume.FileName</span>
+                    }
+                    else
+                    {
+                        <span class="file-meta">No file uploaded</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>AI packet</h2>
+    <p class="page-note">
+        Hand this packet to your own AI assistant. It contains the posting, the
+        fit check, your profile and standing answers, and strict instructions
+        to use only these facts and to stop before any submission. JobHunt HQ
+        never submits anything for you.
+    </p>
+    <p>
+        <a class="button" asp-action="DownloadPacket" asp-route-id="@app.Id">Download .md</a>
+    </p>
+    <pre class="code-block notes-block packet-block">@Model.PacketMarkdown</pre>
+</section>
+
+<p><a asp-action="Index">&larr; Back to applications</a></p>

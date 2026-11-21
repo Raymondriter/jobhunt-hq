@@ -16,6 +16,8 @@ public class ApplicationDbContext : IdentityDbContext
 
     public DbSet<ResumeVersion> ResumeVersions => Set<ResumeVersion>();
 
+    public DbSet<SearchProfile> SearchProfiles => Set<SearchProfile>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -53,6 +55,12 @@ public class ApplicationDbContext : IdentityDbContext
         builder.Entity<ResumeVersion>(entity =>
         {
             entity.HasIndex(r => r.UserId);
+        });
+
+        builder.Entity<SearchProfile>(entity =>
+        {
+            // One search profile per user.
+            entity.HasIndex(p => p.UserId).IsUnique();
         });
     }
 }

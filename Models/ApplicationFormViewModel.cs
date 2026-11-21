@@ -55,6 +55,21 @@ public class ApplicationFormViewModel
     [StringLength(4000)]
     public string? Notes { get; set; }
 
+    // ---- M4: posting capture (fit check re-runs when posting text is saved) ----
+
+    [StringLength(1000)]
+    [Display(Name = "Posting URL")]
+    public string? PostingUrl { get; set; }
+
+    [Display(Name = "Posting text (paste the full posting)")]
+    public string? PostingText { get; set; }
+
+    [Display(Name = "Posting pay min")]
+    public int? PayMin { get; set; }
+
+    [Display(Name = "Posting pay max")]
+    public int? PayMax { get; set; }
+
     /// <summary>The current user's resume versions, for the "Resume used" dropdown.</summary>
     public List<SelectListItem> ResumeOptions { get; set; } = new();
 
@@ -73,7 +88,11 @@ public class ApplicationFormViewModel
         SalaryMin = app.SalaryMin,
         SalaryMax = app.SalaryMax,
         ResumeVersionId = app.ResumeVersionId,
-        Notes = app.Notes
+        Notes = app.Notes,
+        PostingUrl = app.PostingUrl,
+        PostingText = app.PostingText,
+        PayMin = app.PayMin,
+        PayMax = app.PayMax
     };
 
     public void ApplyTo(JobApplication app)
@@ -91,5 +110,9 @@ public class ApplicationFormViewModel
         app.SalaryMax = SalaryMax;
         app.ResumeVersionId = ResumeVersionId;
         app.Notes = Notes;
+        app.PostingUrl = PostingUrl;
+        app.PostingText = PostingText;
+        app.PayMin = PayMin;
+        app.PayMax = PayMax;
     }
 }

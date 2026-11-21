@@ -47,6 +47,10 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
 
+// M4: deterministic fit check + bring-your-own-AI packet generation.
+builder.Services.AddScoped<FitCheckService>();
+builder.Services.AddScoped<AiPacketService>();
+
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();

@@ -1,0 +1,58 @@
+@model JobHuntHQ.Models.AddPostingViewModel
+
+@{
+    ViewData["Title"] = "Add posting";
+}
+
+<h1>Add posting</h1>
+<p class="page-note">
+    Paste a posting and JobHunt HQ saves it as a Saved application and checks
+    it against <a asp-controller="Profile" asp-action="Index">your search profile</a> right away.
+</p>
+
+<form asp-action="AddPosting" method="post" class="edit-form">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+    <div class="form-row">
+        <label asp-for="Company"></label>
+        <input asp-for="Company" />
+        <span asp-validation-for="Company" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="JobTitle"></label>
+        <input asp-for="JobTitle" />
+        <span asp-validation-for="JobTitle" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="PostingUrl"></label>
+        <input asp-for="PostingUrl" />
+        <span asp-validation-for="PostingUrl" class="field-error"></span>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-row">
+            <label asp-for="PayMin"></label>
+            <input asp-for="PayMin" type="number" min="0" step="1000" />
+            <span asp-validation-for="PayMin" class="field-error"></span>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="PayMax"></label>
+            <input asp-for="PayMax" type="number" min="0" step="1000" />
+            <span asp-validation-for="PayMax" class="field-error"></span>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="PostingText"></label>
+        <textarea asp-for="PostingText" rows="14"></textarea>
+        <span asp-validation-for="PostingText" class="field-error"></span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="button">Save &amp; check fit</button>
+        <a asp-action="Index">Cancel</a>
+    </div>
+</form>

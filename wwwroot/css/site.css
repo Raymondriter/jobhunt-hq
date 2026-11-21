@@ -760,6 +760,211 @@ a:hover {
     color: #9a6a00;
 }
 
+/* M4 — Fit check pills (same pill shape as statuses, its own palette) */
+
+.fit-strong-fit {
+    background: var(--status-offer);
+}
+
+.fit-possible {
+    background: var(--status-screening);
+}
+
+.fit-poor-fit {
+    background: #ffc107;
+    color: var(--ink);
+}
+
+.fit-blocked {
+    background: var(--status-rejected);
+}
+
+.fit-not-checked {
+    background: #f8f9fa;
+    color: var(--muted);
+    border: 1px solid var(--line);
+}
+
+.fit-reasons {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.recheck-form {
+    display: inline;
+    margin-left: 0.75rem;
+}
+
+/* M4 — Posting text / packet blocks */
+
+.posting-text {
+    white-space: pre-wrap;
+    max-height: 24rem;
+    overflow-y: auto;
+}
+
+.packet-block {
+    white-space: pre-wrap;
+    max-height: 32rem;
+    overflow-y: auto;
+}
+
+/* M4 — Must-have checklist */
+
+.check-list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+}
+
+.check-list li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.check-list li:last-child {
+    border-bottom: none;
+}
+
+.check-mark {
+    display: inline-block;
+    width: 1.4rem;
+    font-weight: 700;
+}
+
+.check-present .check-mark {
+    color: var(--status-offer);
+}
+
+.check-missing .check-mark {
+    color: #b3261e;
+}
+
+.check-missing {
+    color: var(--muted);
+}
+
+/* M4 — Prepare page resume list */
+
+.resume-list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+}
+
+.resume-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.resume-list li:last-child {
+    border-bottom: none;
+}
+
+.resume-list .status-badge {
+    min-width: 0;
+    margin-left: 0.6rem;
+    margin-right: 0;
+}
+
+/* M4 — Form section grouping (posting fields on the application form) */
+
+.form-section {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.1rem 0.25rem;
+    margin: 1.25rem 0 0;
+}
+
+.form-section legend {
+    font-weight: 700;
+    padding: 0 0.4rem;
+}
+
+/* M4 — Pipeline board */
+
+.board {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+    align-items: flex-start;
+}
+
+.board-column {
+    flex: 1 0 220px;
+    max-width: 280px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.85rem;
+}
+
+.board-column-saved { border-top: 3px solid var(--status-saved); }
+.board-column-applied { border-top: 3px solid var(--status-applied); }
+.board-column-screening { border-top: 3px solid var(--status-screening); }
+.board-column-interview { border-top: 3px solid var(--status-interview); }
+.board-column-offer { border-top: 3px solid var(--status-offer); }
+.board-column-rejected { border-top: 3px solid var(--status-rejected); }
+.board-column-ghosted { border-top: 3px solid var(--status-ghosted); }
+.board-column-withdrawn { border-top: 3px solid var(--status-withdrawn); }
+
+.board-column-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+.board-count {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.board-empty {
+    margin: 0;
+}
+
+.board-card {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 0.6rem;
+    color: var(--ink);
+}
+
+.board-card:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+}
+
+.board-card-company {
+    display: block;
+    font-weight: 700;
+}
+
+.board-card-role {
+    display: block;
+    color: var(--accent-dark);
+    font-size: 0.95rem;
+}
+
+.board-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.45rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
 /* Error page */
 
 .error-heading {

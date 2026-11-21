@@ -83,3 +83,34 @@
     <textarea asp-for="Notes" rows="5"></textarea>
     <span asp-validation-for="Notes" class="field-error"></span>
 </div>
+
+<fieldset class="form-section">
+    <legend>Posting &amp; fit check</legend>
+
+    <div class="form-row">
+        <label asp-for="PostingUrl"></label>
+        <input asp-for="PostingUrl" />
+        <span asp-validation-for="PostingUrl" class="field-error"></span>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-row">
+            <label asp-for="PayMin"></label>
+            <input asp-for="PayMin" type="number" min="0" step="1000" />
+            <span asp-validation-for="PayMin" class="field-error"></span>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="PayMax"></label>
+            <input asp-for="PayMax" type="number" min="0" step="1000" />
+            <span asp-validation-for="PayMax" class="field-error"></span>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="PostingText"></label>
+        <textarea asp-for="PostingText" rows="10"></textarea>
+        <span asp-validation-for="PostingText" class="field-error"></span>
+        <span class="table-note">Saving posting text re-runs the fit check against your search profile.</span>
+    </div>
+</fieldset>

@@ -1,0 +1,64 @@
+@model JobHuntHQ.Models.SearchProfileFormViewModel
+
+@{
+    ViewData["Title"] = "Edit search profile";
+}
+
+<h1>Search profile</h1>
+<p class="page-note">
+    One profile per account. Lists can be separated by commas or new lines —
+    each entry becomes a keyword the fit check looks for.
+</p>
+
+<form asp-action="Edit" method="post" class="edit-form">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+    <div class="form-row">
+        <label asp-for="TargetRoles"></label>
+        <textarea asp-for="TargetRoles" rows="2" placeholder="Senior .NET Developer, Full Stack Engineer"></textarea>
+        <span asp-validation-for="TargetRoles" class="field-error"></span>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-row">
+            <label asp-for="RemotePreference"></label>
+            <input asp-for="RemotePreference" placeholder="Fully remote" />
+            <span asp-validation-for="RemotePreference" class="field-error"></span>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="PayFloor"></label>
+            <input asp-for="PayFloor" type="number" min="0" step="1000" />
+            <span asp-validation-for="PayFloor" class="field-error"></span>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="MustHaves"></label>
+        <textarea asp-for="MustHaves" rows="3" placeholder="C#, Azure, health insurance"></textarea>
+        <span asp-validation-for="MustHaves" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="DealBreakers"></label>
+        <textarea asp-for="DealBreakers" rows="3" placeholder="security clearance, on-call rotation"></textarea>
+        <span asp-validation-for="DealBreakers" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="SkipCompanies"></label>
+        <textarea asp-for="SkipCompanies" rows="2"></textarea>
+        <span asp-validation-for="SkipCompanies" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="StandingAnswers"></label>
+        <textarea asp-for="StandingAnswers" rows="10" placeholder="Work authorization: authorized to work in the U.S. without sponsorship.&#10;Salary expectation: …"></textarea>
+        <span asp-validation-for="StandingAnswers" class="field-error"></span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="button">Save profile</button>
+        <a asp-action="Index">Cancel</a>
+    </div>
+</form>

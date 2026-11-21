@@ -1,0 +1,73 @@
+@model JobHuntHQ.Models.SearchProfile
+
+@{
+    ViewData["Title"] = "Search profile";
+}
+
+<div class="page-heading">
+    <h1>Search profile</h1>
+    @if (Model is not null)
+    {
+        <a class="button" asp-action="Edit">Edit profile</a>
+    }
+</div>
+
+@if (Model is null)
+{
+    <p class="empty-note">
+        You haven't saved a search profile yet. Your profile holds the criteria
+        JobHunt HQ checks new postings against — your target roles, pay floor,
+        must-haves, deal-breakers, and the companies you skip — plus the
+        standing answers you reuse on applications.
+    </p>
+    <p><a class="button" asp-action="Edit">Create your search profile</a></p>
+}
+else
+{
+    <p class="page-note">These are your own criteria — fit checks on your postings are scored against them.</p>
+
+    <dl class="detail-list">
+        @if (!string.IsNullOrWhiteSpace(Model.TargetRoles))
+        {
+            <dt>Target roles</dt>
+            <dd class="notes-block">@Model.TargetRoles</dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.RemotePreference))
+        {
+            <dt>Remote preference</dt>
+            <dd>@Model.RemotePreference</dd>
+        }
+        @if (Model.PayFloor.HasValue)
+        {
+            <dt>Pay floor</dt>
+            <dd>$@Model.PayFloor.Value.ToString("N0") / year</dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.MustHaves))
+        {
+            <dt>Must-haves</dt>
+            <dd class="notes-block">@Model.MustHaves</dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.DealBreakers))
+        {
+            <dt>Deal-breakers</dt>
+            <dd class="notes-block">@Model.DealBreakers</dd>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.SkipCompanies))
+        {
+            <dt>Skip companies</dt>
+            <dd class="notes-block">@Model.SkipCompanies</dd>
+        }
+        <dt>Last updated</dt>
+        <dd>@Model.UpdatedUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+    </dl>
+
+    <h2>Standing answers</h2>
+    @if (string.IsNullOrWhiteSpace(Model.StandingAnswers))
+    {
+        <p class="empty-note">No standing answers saved yet — <a asp-action="Edit">add them</a> so they're one copy away on every application.</p>
+    }
+    else
+    {
+        <pre class="code-block notes-block">@Model.StandingAnswers</pre>
+    }
+}

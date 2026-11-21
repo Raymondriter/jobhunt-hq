@@ -1,0 +1,47 @@
+@model JobHuntHQ.Models.BoardViewModel
+@using JobHuntHQ.Models
+
+@{
+    ViewData["Title"] = "Board";
+}
+
+<div class="page-heading">
+    <h1>Pipeline board</h1>
+    <a class="button" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
+</div>
+<p class="page-note">Every application, grouped by where it stands. Cards open the application's details.</p>
+
+<div class="board">
+    @foreach (var column in Model.Columns)
+    {
+        <section class="board-column board-column-@column.Status.ToString().ToLowerInvariant()">
+            <h2 class="board-column-title">
+                <span class="status-pill status-pill-@column.Status.ToString().ToLowerInvariant()">@column.Status</span>
+                <span class="board-count">@column.Applications.Count</span>
+            </h2>
+            @if (column.Applications.Count == 0)
+            {
+                <p class="empty-note board-empty">None</p>
+            }
+            @foreach (var app in column.Applications)
+            {
+                var fitSlug = (app.FitVerdict ?? "not-checked").ToLowerInvariant().Replace(" ", "-");
+                var overdue = app.NextActionDue.HasValue && !app.Status.IsClosed() && app.NextActionDue.Value < Model.Today;
+                <a class="board-card" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">
+                    <span class="board-card-company">@app.Company</span>
+                    <span class="board-card-role">@app.RoleTitle</span>
+                    <span class="board-card-meta">
+                        @if (app.FitVerdict is not null)
+                        {
+                            <span class="status-pill fit-pill fit-@fitSlug">@app.FitVerdict</span>
+                        }
+                        @if (app.NextActionDue.HasValue)
+                        {
+                            <span class="@(overdue ? "due-overdue" : "")">Due @app.NextActionDue.Value.ToString("yyyy-MM-dd")</span>
+                        }
+                    </span>
+                </a>
+            }
+        </section>
+    }
+</div>

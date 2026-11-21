@@ -44,6 +44,13 @@ namespace JobHuntHQ.Migrations
                     b.Property<DateOnly>("DateSaved")
                         .HasColumnType("date");
 
+                    b.Property<string>("FitReasons")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FitVerdict")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Location")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -58,6 +65,19 @@ namespace JobHuntHQ.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int?>("PayMax")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PayMin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PostingText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PostingUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<int?>("ResumeVersionId")
                         .HasColumnType("int");
@@ -140,6 +160,58 @@ namespace JobHuntHQ.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ResumeVersions");
+                });
+
+            modelBuilder.Entity("JobHuntHQ.Models.SearchProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DealBreakers")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("MustHaves")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int?>("PayFloor")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RemotePreference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SkipCompanies")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("StandingAnswers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetRoles")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("SearchProfiles");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>

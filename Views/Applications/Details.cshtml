@@ -7,6 +7,7 @@
 <div class="page-heading">
     <h1>@Model.Company</h1>
     <span class="heading-actions">
+        <a class="button" asp-action="Prepare" asp-route-id="@Model.Id">Prepare</a>
         <a class="button button-secondary" asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
         <a class="button button-danger" asp-action="Delete" asp-route-id="@Model.Id">Delete</a>
     </span>
@@ -27,6 +28,51 @@
     {
         <dt>Posting</dt>
         <dd><a href="@Model.Url" target="_blank" rel="noopener noreferrer">@Model.Url</a></dd>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.PostingUrl) && Model.PostingUrl != Model.Url)
+    {
+        <dt>Posting URL</dt>
+        <dd><a href="@Model.PostingUrl" target="_blank" rel="noopener noreferrer">@Model.PostingUrl</a></dd>
+    }
+
+    @if (Model.PayMin.HasValue || Model.PayMax.HasValue)
+    {
+        <dt>Pay in posting</dt>
+        <dd>
+            @if (Model.PayMin.HasValue && Model.PayMax.HasValue)
+            {
+                <text>$@Model.PayMin.Value.ToString("N0") – $@Model.PayMax.Value.ToString("N0")</text>
+            }
+            else if (Model.PayMin.HasValue)
+            {
+                <text>From $@Model.PayMin.Value.ToString("N0")</text>
+            }
+            else
+            {
+                <text>Up to $@Model.PayMax!.Value.ToString("N0")</text>
+            }
+        </dd>
+    }
+
+    @if (Model.FitVerdict is not null)
+    {
+        <dt>Fit check</dt>
+        <dd>
+            <span class="status-pill fit-pill fit-@Model.FitVerdict.ToLowerInvariant().Replace(" ", "-")">@Model.FitVerdict</span>
+            @if (!string.IsNullOrWhiteSpace(Model.FitReasons))
+            {
+                <ul class="fit-reasons">
+                    @foreach (var line in Model.FitReasons.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            }
+            <form asp-action="RecheckFit" asp-route-id="@Model.Id" method="post" class="recheck-form">
+                <button type="submit" class="link-button">Re-check fit</button>
+            </form>
+        </dd>
     }
 
     <dt>Date saved</dt>
@@ -81,5 +127,11 @@
     <dt>Last updated</dt>
     <dd>@Model.UpdatedUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
 </dl>
+
+@if (!string.IsNullOrWhiteSpace(Model.PostingText))
+{
+    <h2>Posting text</h2>
+    <pre class="code-block notes-block posting-text">@Model.PostingText</pre>
+}
 
 <p><a asp-action="Index">&larr; Back to applications</a></p>

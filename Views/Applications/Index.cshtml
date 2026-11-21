@@ -8,7 +8,10 @@
 
 <div class="page-heading">
     <h1>Applications</h1>
-    <a class="button" asp-action="Create">Add application</a>
+    <span class="heading-actions">
+        <a class="button" asp-action="AddPosting">Add posting</a>
+        <a class="button button-secondary" asp-action="Create">Add application</a>
+    </span>
 </div>
 
 <form method="get" class="filter-bar">
@@ -49,6 +52,7 @@ else
                 <th>Company</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Fit</th>
                 <th>Applied</th>
                 <th>Next action</th>
                 <th>Due</th>
@@ -74,10 +78,21 @@ else
                     <td><a asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
                     <td>@app.RoleTitle</td>
                     <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
+                    <td>
+                        @if (app.FitVerdict is not null)
+                        {
+                            <span class="status-pill fit-pill fit-@app.FitVerdict.ToLowerInvariant().Replace(" ", "-")">@app.FitVerdict</span>
+                        }
+                        else
+                        {
+                            <text>—</text>
+                        }
+                    </td>
                     <td>@(app.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</td>
                     <td>@(app.NextAction ?? "—")</td>
                     <td class="@dueClass">@(app.NextActionDue?.ToString("yyyy-MM-dd") ?? "—")</td>
                     <td class="row-actions">
+                        <a asp-action="Prepare" asp-route-id="@app.Id">Prepare</a>
                         <a asp-action="Edit" asp-route-id="@app.Id">Edit</a>
                         <a asp-action="Delete" asp-route-id="@app.Id">Delete</a>
                     </td>

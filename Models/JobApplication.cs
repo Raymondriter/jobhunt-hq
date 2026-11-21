@@ -58,6 +58,34 @@ public class JobApplication
     [StringLength(4000)]
     public string? Notes { get; set; }
 
+    // ---- M4: posting capture + fit check ----
+
+    /// <summary>URL of the captured posting (the "Add posting" flow). Kept alongside the older free-form <see cref="Url"/>.</summary>
+    [StringLength(1000)]
+    [Display(Name = "Posting URL")]
+    public string? PostingUrl { get; set; }
+
+    /// <summary>The full pasted posting text, used by the fit check and the AI packet. Long free text.</summary>
+    [Display(Name = "Posting text")]
+    public string? PostingText { get; set; }
+
+    /// <summary>Low end of the pay range stated in the posting, if any.</summary>
+    [Display(Name = "Posting pay min")]
+    public int? PayMin { get; set; }
+
+    /// <summary>High end of the pay range stated in the posting, if any.</summary>
+    [Display(Name = "Posting pay max")]
+    public int? PayMax { get; set; }
+
+    /// <summary>Latest fit-check verdict: Blocked / Poor fit / Possible / Strong fit / Not checked.</summary>
+    [StringLength(50)]
+    [Display(Name = "Fit verdict")]
+    public string? FitVerdict { get; set; }
+
+    /// <summary>Latest fit-check reasons, one per line, in the user's own criteria's terms.</summary>
+    [Display(Name = "Fit reasons")]
+    public string? FitReasons { get; set; }
+
     public DateTime CreatedUtc { get; set; }
 
     public DateTime UpdatedUtc { get; set; }
