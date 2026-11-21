@@ -42,13 +42,14 @@ One deployable web app plus one small serverless piece:
 - **M1 — Hello Azure** *(complete)*: Azure foundation is live — budget alert,
   resource group, F1 plan, the app running at the URL above, and continuous
   deployment from GitHub via Deployment Center.
-- **M2 — The real app** *(in progress)*: ASP.NET Core Identity sign-in, EF Core
+- **M2 — The real app** *(complete)*: ASP.NET Core Identity sign-in, EF Core
   model against Azure SQL, full CRUD for applications with the status pipeline
   (Saved → Applied → Screening → Interview → Offer, plus Rejected / Ghosted /
   Withdrawn), next action + due date per application, resume-version tracking,
   a per-user dashboard, and CSV import of real applications as seed data.
-  Code-complete; goes live once the Azure SQL connection string is set in the
-  web app's configuration (the app applies EF migrations itself at startup).
+  Live since Nov 20, 2026: the database is passwordless (Entra-only auth; the
+  app connects as its managed identity), the app applied its EF migrations at
+  startup, and 37 real applications were imported from the tracker CSV.
 - **M3 — Cloud-native pieces**: resume uploads to Blob tied to applications,
   the daily reminder Function emailing a digest (Azure Communication Services
   Email), secrets moved to Key Vault behind managed identity, and an App
