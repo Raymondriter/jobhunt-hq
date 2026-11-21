@@ -983,6 +983,86 @@ a:hover {
     max-width: 640px;
 }
 
+/* Phase 3 — board interactions (drag-and-drop, per-card status select, WIP nudges) */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.board-cards {
+    min-height: 2.5rem;
+}
+
+.board-card[draggable="true"] {
+    cursor: grab;
+}
+
+.board-card.dragging {
+    opacity: 0.5;
+}
+
+.board-column.drop-target {
+    outline: 2px dashed var(--accent);
+    outline-offset: -6px;
+    background: #eef3f6;
+}
+
+.board-card-link {
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.board-card-link:hover {
+    color: var(--accent-dark);
+    text-decoration: underline;
+}
+
+.board-card-move {
+    margin-top: 0.55rem;
+}
+
+.board-move-select {
+    width: 100%;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.board-wip-note {
+    margin: 0 0 0.6rem;
+    padding: 0.4rem 0.6rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--status-interview);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.board-error {
+    margin-top: 1rem;
+    max-width: 640px;
+    padding: 0.6rem 0.9rem;
+    background: #fdf1f1;
+    border: 1px solid var(--status-rejected);
+    border-left: 3px solid var(--status-rejected);
+    border-radius: 8px;
+    color: #7a1f1f;
+}
+
 /* Error page */
 
 .error-heading {

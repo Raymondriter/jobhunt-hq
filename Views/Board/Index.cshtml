@@ -3,45 +3,75 @@
 
 @{
     ViewData["Title"] = "Board";
+    var allStatuses = Enum.GetValues<ApplicationStatus>();
 }
 
 <div class="page-heading">
     <h1>Pipeline board</h1>
     <a class="button" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
 </div>
-<p class="page-note">Every application, grouped by where it stands. Cards open the application's details.</p>
+<p class="page-note">
+    Every application, grouped by where it stands. Drag a card to another
+    column to move it — or use the status menu on the card, which does the
+    same thing. The company name opens the application's details.
+</p>
+
+@* The token board.js posts back to Board/Move (the action is antiforgery-protected). *@
+@Html.AntiForgeryToken()
+
+<div id="board-error" class="board-error" role="alert" hidden></div>
 
 <div class="board">
     @foreach (var column in Model.Columns)
     {
-        <section class="board-column board-column-@column.Status.ToString().ToLowerInvariant()">
+        var statusSlug = column.Status.ToString().ToLowerInvariant();
+        <section class="board-column board-column-@statusSlug" data-column data-status="@column.Status">
             <h2 class="board-column-title">
-                <span class="status-pill status-pill-@column.Status.ToString().ToLowerInvariant()">@column.Status</span>
-                <span class="board-count">@column.Applications.Count</span>
+                <span class="status-pill status-pill-@statusSlug">@column.Status</span>
+                <span class="board-count" data-count>@column.Applications.Count</span>
             </h2>
-            @if (column.Applications.Count == 0)
+            @if (column.WipSoftLimit.HasValue)
             {
-                <p class="empty-note board-empty">None</p>
+                <p class="board-wip-note" data-wip-note data-wip-limit="@column.WipSoftLimit.Value" data-wip-hint="@column.WipHint" @(column.Applications.Count > column.WipSoftLimit.Value ? "" : "hidden")>@column.Applications.Count here — @column.WipHint</p>
             }
-            @foreach (var app in column.Applications)
-            {
-                var fitSlug = (app.FitVerdict ?? "not-checked").ToLowerInvariant().Replace(" ", "-");
-                var overdue = app.NextActionDue.HasValue && !app.Status.IsClosed() && app.NextActionDue.Value < Model.Today;
-                <a class="board-card" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">
-                    <span class="board-card-company">@app.Company</span>
-                    <span class="board-card-role">@app.RoleTitle</span>
-                    <span class="board-card-meta">
-                        @if (app.FitVerdict is not null)
-                        {
-                            <span class="status-pill fit-pill fit-@fitSlug">@app.FitVerdict</span>
-                        }
-                        @if (app.NextActionDue.HasValue)
-                        {
-                            <span class="@(overdue ? "due-overdue" : "")">Due @app.NextActionDue.Value.ToString("yyyy-MM-dd")</span>
-                        }
-                    </span>
-                </a>
-            }
+            <div class="board-cards" data-cards>
+                @if (column.Applications.Count == 0)
+                {
+                    <p class="empty-note board-empty" data-empty-note>None</p>
+                }
+                @foreach (var app in column.Applications)
+                {
+                    var fitSlug = (app.FitVerdict ?? "not-checked").ToLowerInvariant().Replace(" ", "-");
+                    var overdue = app.NextActionDue.HasValue && !app.Status.IsClosed() && app.NextActionDue.Value < Model.Today;
+                    <article class="board-card" draggable="true" data-card data-id="@app.Id" data-status="@app.Status">
+                        <a class="board-card-company board-card-link" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a>
+                        <span class="board-card-role">@app.RoleTitle</span>
+                        <span class="board-card-meta">
+                            @if (app.FitVerdict is not null)
+                            {
+                                <span class="status-pill fit-pill fit-@fitSlug">@app.FitVerdict</span>
+                            }
+                            @if (app.NextActionDue.HasValue)
+                            {
+                                <span class="@(overdue ? "due-overdue" : "")">Due @app.NextActionDue.Value.ToString("yyyy-MM-dd")</span>
+                            }
+                        </span>
+                        <div class="board-card-move">
+                            <label class="visually-hidden" for="move-@app.Id">Move @app.Company — @app.RoleTitle — to a different status</label>
+                            <select id="move-@app.Id" class="board-move-select" data-move-select>
+                                @foreach (var s in allStatuses)
+                                {
+                                    <option value="@s" selected="@(s == app.Status)">@s</option>
+                                }
+                            </select>
+                        </div>
+                    </article>
+                }
+            </div>
         </section>
     }
 </div>
+
+@section Scripts {
+    <script src="~/js/board.js" asp-append-version="true"></script>
+}

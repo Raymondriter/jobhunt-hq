@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using JobHuntHQ.Data;
 using JobHuntHQ.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -70,5 +72,35 @@ public class ProfileController : Controller
         profile.UpdatedUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
+    }
+
+    // GET: Profile/Export — "Download my data" (phase 3): one JSON file with
+    // the signed-in user's search profile, all of their applications (all
+    // fields), and resume version metadata. Every query is scoped to the
+    // current user, like everything else in this controller. Resume PDF bytes
+    // are not included — those are downloaded from the Resumes page.
+    public async Task<IActionResult> Export()
+    {
+        var profile = await FindMineAsync();
+        var applications = await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId)
+            .OrderBy(a => a.Id)
+            .ToListAsync();
+        var resumes = await _context.ResumeVersions
+            .Where(r => r.UserId == CurrentUserId)
+            .OrderBy(r => r.Id)
+            .ToListAsync();
+
+        var export = new UserDataExport
+        {
+            ExportedAtUtc = DateTime.UtcNow,
+            AccountEmail = User.Identity?.Name ?? string.Empty,
+            SearchProfile = profile is null ? null : SearchProfileExport.FromEntity(profile),
+            Applications = applications.Select(ApplicationExport.FromEntity).ToList(),
+            ResumeVersions = resumes.Select(ResumeVersionExport.FromEntity).ToList()
+        };
+
+        var json = JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
+        return File(Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", "jobhunt-hq-my-data.json");
     }
 }

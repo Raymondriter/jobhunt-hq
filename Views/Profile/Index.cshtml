@@ -71,3 +71,19 @@ else
         <pre class="code-block notes-block">@Model.StandingAnswers</pre>
     }
 }
+
+<section class="dashboard-section">
+    <h2>Your data</h2>
+    <p>
+        Everything JobHunt HQ holds for you — your search profile, every
+        application with all its fields, and your resume version details —
+        in one JSON file, whenever you want it. The resume PDF files
+        themselves aren't in the export; you can download those from the
+        Resumes page.
+    </p>
+    <p><a class="button" asp-action="Export">Download my data (JSON)</a></p>
+    <p class="page-note">
+        What the app stores, why, and how to delete it:
+        <a asp-controller="Home" asp-action="Privacy">the Privacy page</a>.
+    </p>
+</section>
