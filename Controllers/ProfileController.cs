@@ -20,16 +20,16 @@ public class ProfileController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly FitCheckService _fitCheck;
-    private readonly IResumeStorageService _storage;
+    private readonly UserDataPurgeService _purge;
 
     public ProfileController(
         ApplicationDbContext context,
         FitCheckService fitCheck,
-        IResumeStorageService storage)
+        UserDataPurgeService purge)
     {
         _context = context;
         _fitCheck = fitCheck;
-        _storage = storage;
+        _purge = purge;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -270,34 +270,7 @@ public class ProfileController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        var resumes = await _context.ResumeVersions
-            .Where(r => r.UserId == CurrentUserId)
-            .ToListAsync();
-        foreach (var r in resumes)
-        {
-            if (!string.IsNullOrWhiteSpace(r.BlobName))
-            {
-                await _storage.DeleteAsync(r.BlobName);
-            }
-        }
-
-        var rounds = await _context.InterviewRounds.Where(r => r.UserId == CurrentUserId).ToListAsync();
-        var apps = await _context.JobApplications.Where(a => a.UserId == CurrentUserId).ToListAsync();
-        var stories = await _context.StoryBankItems.Where(s => s.UserId == CurrentUserId).ToListAsync();
-        var tokens = await _context.ApiTokens.Where(t => t.UserId == CurrentUserId).ToListAsync();
-        var profile = await FindMineAsync();
-
-        _context.InterviewRounds.RemoveRange(rounds);
-        _context.JobApplications.RemoveRange(apps);
-        _context.ResumeVersions.RemoveRange(resumes);
-        _context.StoryBankItems.RemoveRange(stories);
-        _context.ApiTokens.RemoveRange(tokens);
-        if (profile is not null)
-        {
-            _context.SearchProfiles.Remove(profile);
-        }
-
-        await _context.SaveChangesAsync();
+        await _purge.PurgeUserDataAsync(CurrentUserId);
         TempData["StatusMessage"] = "All of your applications, interview rounds, STAR stories, resumes, and search profile have been permanently deleted.";
         return RedirectToAction(nameof(Index));
     }
