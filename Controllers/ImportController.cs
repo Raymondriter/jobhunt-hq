@@ -13,10 +13,12 @@ namespace JobHuntHQ.Controllers;
 public class ImportController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IWebHostEnvironment _env;
 
-    public ImportController(ApplicationDbContext context)
+    public ImportController(ApplicationDbContext context, IWebHostEnvironment env)
     {
         _context = context;
+        _env = env;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -25,6 +27,33 @@ public class ImportController : Controller
     public IActionResult Index()
     {
         return View();
+    }
+
+    // POST: Import/LoadDemoSeed — one-click import of the bundled fictional
+    // 4-row demo seed CSV (idempotent, just like uploading the file).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> LoadDemoSeed()
+    {
+        var seedPath = Path.Combine(_env.ContentRootPath, "seed", "applications-seed.csv");
+        if (!System.IO.File.Exists(seedPath))
+        {
+            TempData["ErrorMessage"] = "Sample demo CSV was not found on the server.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var text = await System.IO.File.ReadAllTextAsync(seedPath);
+        var (result, error) = await ImportCsvTextAsync(text);
+        if (error is not null)
+        {
+            TempData["ErrorMessage"] = error;
+            return RedirectToAction(nameof(Index));
+        }
+
+        TempData["StatusMessage"] = result.ImportedCount > 0
+            ? $"Loaded {result.ImportedCount} sample demo application{(result.ImportedCount == 1 ? "" : "s")}."
+            : $"All {result.DuplicateCount} sample demo applications are already in your tracker.";
+        return View("Result", result);
     }
 
     // POST: Import
@@ -51,13 +80,24 @@ public class ImportController : Controller
             text = await reader.ReadToEndAsync();
         }
 
+        var (result, error) = await ImportCsvTextAsync(text);
+        if (error is not null)
+        {
+            ModelState.AddModelError(string.Empty, error);
+            return View();
+        }
+
+        return View("Result", result);
+    }
+
+    private async Task<(ImportResultViewModel Result, string? Error)> ImportCsvTextAsync(string text)
+    {
         var records = CsvParser.Parse(text);
         var result = new ImportResultViewModel();
 
         if (records.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "The file is empty — no header row found.");
-            return View();
+            return (result, "The file is empty — no header row found.");
         }
 
         // Map header names (case-insensitive) to column indexes.
@@ -74,9 +114,7 @@ public class ImportController : Controller
 
         if (!columns.ContainsKey("Company") || !(columns.ContainsKey("Title") || columns.ContainsKey("RoleTitle")))
         {
-            ModelState.AddModelError(string.Empty,
-                "The CSV needs at least a Company column and a Title (or RoleTitle) column in its header row.");
-            return View();
+            return (result, "The CSV needs at least a Company column and a Title (or RoleTitle) column in its header row.");
         }
 
         string? Get(CsvParser.CsvRecord row, params string[] names)
@@ -106,6 +144,21 @@ public class ImportController : Controller
         var today = DateOnly.FromDateTime(DateTime.Today);
         var now = DateTime.UtcNow;
         var toAdd = new List<JobApplication>();
+
+        // Existing applications for this user, keyed for idempotent re-imports
+        // so importing the same CSV twice adds zero duplicate rows while
+        // preserving genuinely separate postings.
+        var existingApps = await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId)
+            .Select(a => new { a.Company, a.RoleTitle, a.DateApplied, a.Url })
+            .ToListAsync();
+
+        static string DedupKey(string company, string title, DateOnly? dateApplied, string? url) =>
+            $"{company.Trim().ToLowerInvariant()}|{title.Trim().ToLowerInvariant()}|{dateApplied?.ToString("yyyy-MM-dd") ?? ""}|{(url ?? "").Trim().ToLowerInvariant()}";
+
+        var seenKeys = new HashSet<string>(
+            existingApps.Select(a => DedupKey(a.Company, a.RoleTitle, a.DateApplied, a.Url)),
+            StringComparer.Ordinal);
 
         foreach (var row in records.Skip(1))
         {
@@ -179,6 +232,13 @@ public class ImportController : Controller
             }
 
             var dateApplied = ParseDate(Get(row, "DateApplied"), "DateApplied");
+            var rowUrl = Truncate(Get(row, "Url"), 1000);
+            var rowKey = DedupKey(company, title, dateApplied, rowUrl);
+            if (!seenKeys.Add(rowKey))
+            {
+                result.DuplicateCount++;
+                continue;
+            }
 
             int? resumeVersionId = null;
             var resumeName = Get(row, "ResumeName");
@@ -194,12 +254,16 @@ public class ImportController : Controller
                 }
             }
 
+            var salaryMin = ParseSalary(Get(row, "SalaryMin"), "SalaryMin");
+            var salaryMax = ParseSalary(Get(row, "SalaryMax"), "SalaryMax");
+
             toAdd.Add(new JobApplication
             {
                 UserId = CurrentUserId,
                 Company = company,
                 RoleTitle = title,
-                Url = Truncate(Get(row, "Url"), 1000),
+                Url = rowUrl,
+                PostingUrl = rowUrl,
                 Location = Truncate(Get(row, "Location"), 200),
                 Status = status,
                 // Tracker exports rarely carry a separate "saved" date; the
@@ -208,8 +272,10 @@ public class ImportController : Controller
                 DateApplied = dateApplied,
                 NextAction = Truncate(Get(row, "NextAction"), 500),
                 NextActionDue = ParseDate(Get(row, "NextActionDue"), "NextActionDue"),
-                SalaryMin = ParseSalary(Get(row, "SalaryMin"), "SalaryMin"),
-                SalaryMax = ParseSalary(Get(row, "SalaryMax"), "SalaryMax"),
+                SalaryMin = salaryMin,
+                SalaryMax = salaryMax,
+                PayMin = salaryMin,
+                PayMax = salaryMax,
                 ResumeVersionId = resumeVersionId,
                 Notes = Truncate(Get(row, "Notes"), 4000),
                 CreatedUtc = now,
@@ -224,7 +290,7 @@ public class ImportController : Controller
         }
 
         result.ImportedCount = toAdd.Count;
-        return View("Result", result);
+        return (result, null);
     }
 
     private static string? Truncate(string? value, int maxLength) =>

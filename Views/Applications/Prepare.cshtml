@@ -13,41 +13,208 @@
 }
 
 <div class="page-heading">
-    <h1>Prepare: @app.Company</h1>
+    <div>
+        <h1>Prepare: @app.Company</h1>
+        <p class="detail-role">@app.RoleTitle</p>
+    </div>
     <span class="heading-actions">
+        <a class="button button-secondary" asp-action="Interview" asp-route-id="@app.Id">Interview prep</a>
+        @if (!string.IsNullOrWhiteSpace(app.PostingUrl ?? app.Url))
+        {
+            <a class="button button-secondary" href="@(app.PostingUrl ?? app.Url)" target="_blank" rel="noopener noreferrer">Open posting &nearr;</a>
+        }
         <a class="button button-secondary" asp-action="Details" asp-route-id="@app.Id">Details</a>
-        <a class="button button-secondary" asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+        <a class="button button-secondary" asp-action="Edit" asp-route-id="@app.Id">Edit full record</a>
     </span>
 </div>
-<p class="detail-role">@app.RoleTitle</p>
 
-<section class="dashboard-section">
-    <h2>Fit check</h2>
-    <p>
-        <span class="status-pill fit-pill fit-@fitSlug">@(app.FitVerdict ?? "Not checked")</span>
+<div class="prepare-grid">
+    <section class="prepare-card">
+        <div class="section-heading">
+            <h2>1. Fit check</h2>
+            <form asp-action="RecheckFit" asp-route-id="@app.Id" method="post">
+                <input type="hidden" name="returnAction" value="Prepare" />
+                <button type="submit" class="button button-secondary button-small">Re-check fit</button>
+            </form>
+        </div>
+        <p>
+            <span class="status-pill fit-pill fit-@fitSlug">@(app.FitVerdict ?? "Not checked")</span>
+            <span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span>
+        </p>
+        @if (!string.IsNullOrWhiteSpace(app.FitReasons))
+        {
+            <ul class="fit-reasons">
+                @foreach (var line in app.FitReasons.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    <li>@line</li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="prepare-card">
+        <h2>2. Must-have checklist</h2>
+        @if (Model.Profile is null)
+        {
+            <p class="empty-note">No <a asp-controller="Profile" asp-action="Index">search profile</a> yet — create one and add must-haves to see them checked here.</p>
+        }
+        else if (Model.MustHaveChecks.Count == 0)
+        {
+            <p class="empty-note">Your profile lists no must-haves — <a asp-controller="Profile" asp-action="Edit">add some</a> and they'll be checked against the posting here.</p>
+        }
+        else
+        {
+            <ul class="check-list">
+                @foreach (var check in Model.MustHaveChecks)
+                {
+                    <li class="@(check.IsPresent ? "check-present" : "check-missing")">
+                        <span class="check-mark" aria-hidden="true">@(check.IsPresent ? "✓" : "✗")</span>
+                        <strong>@check.Keyword</strong> — @(check.IsPresent ? "in the posting" : "not mentioned")
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+<section class="dashboard-section prepare-workspace-box">
+    <h2>3. Preparation &amp; outcome workspace</h2>
+    <p class="page-note">
+        Choose which resume version powers the AI packet below, and record your status, next action, or preparation notes after reviewing with your AI. Moving to <strong>Applied</strong> automatically sets today's applied date if none is set.
     </p>
-    @if (!string.IsNullOrWhiteSpace(app.FitReasons))
-    {
-        <ul class="fit-reasons">
-            @foreach (var line in app.FitReasons.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    <form asp-action="UpdatePreparation" asp-route-id="@app.Id" method="post" class="workspace-form">
+        <div class="form-grid">
+            <div class="form-row">
+                <label for="prep-status">Pipeline status</label>
+                <select id="prep-status" name="status">
+                    @foreach (var s in Enum.GetValues<ApplicationStatus>())
+                    {
+                        <option value="@s" selected="@(s == app.Status)">@s</option>
+                    }
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="prep-resume">Resume version for packet</label>
+                <select id="prep-resume" name="resumeVersionId">
+                    <option value="">— Newest uploaded resume (default) —</option>
+                    @foreach (var r in Model.Resumes)
+                    {
+                        var isSelected = (app.ResumeVersionId ?? Model.ChosenResume?.Id) == r.Id;
+                        <option value="@r.Id" selected="@isSelected">
+                            @r.Name @(r.FileName is not null ? $"({r.FileName})" : "(no PDF yet)")
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="prep-next-action">Next action</label>
+                <input type="text" id="prep-next-action" name="nextAction" value="@app.NextAction" placeholder="e.g. Submit on Greenhouse, Follow up with hiring manager" />
+            </div>
+            <div class="form-row">
+                <label for="prep-next-due">Next action due</label>
+                <input type="date" id="prep-next-due" name="nextActionDue" value="@app.NextActionDue?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="form-row">
+                <label for="prep-confirm">Submission confirmation / receipt</label>
+                <input type="text" id="prep-confirm" name="confirmationReference" value="@app.ConfirmationReference" maxlength="200" placeholder="e.g. Greenhouse confirmation email received" />
+            </div>
+            <div class="form-row">
+                <label for="prep-blocker">Open question / blocker (if paused)</label>
+                <input type="text" id="prep-blocker" name="blockingQuestion" value="@app.BlockingQuestion" maxlength="1000" placeholder="e.g. Confirm on-call rotation requirement before applying" />
+            </div>
+        </div>
+        <div class="form-row">
+            <label for="prep-notes">Preparation &amp; application notes</label>
+            <textarea id="prep-notes" name="notes" rows="3" placeholder="Paste drafted answers, confirmation IDs, or questions to resolve before submitting…">@app.Notes</textarea>
+        </div>
+        <div class="button-row">
+            <button type="submit" class="button">Update workspace &amp; refresh packet</button>
+            @if (Model.Resumes.Count == 0)
             {
-                <li>@line</li>
+                <a class="button button-secondary" asp-controller="Resumes" asp-action="Index">Upload a resume PDF</a>
             }
-        </ul>
-    }
-    <form asp-action="RecheckFit" asp-route-id="@app.Id" method="post">
-        <button type="submit" class="button button-secondary">Re-check fit</button>
+        </div>
     </form>
 </section>
 
 <section class="dashboard-section">
-    <h2>The posting</h2>
+    <div class="section-heading">
+        <h2>4. AI packet (packetVersion 2)</h2>
+        <span class="ats-badge">ATS detected: <strong>@Model.AtsDetectedName</strong></span>
+    </div>
+    <p class="page-note">
+        Hand this self-contained packet to your own AI assistant. It contains the posting, the
+        fit check, your profile and standing answers, your resume's extracted text, and
+        strict instructions to use only these facts and to stop before any
+        submission. JobHunt HQ never submits anything for you.
+    </p>
+    <div class="button-row packet-actions">
+        <button type="button" class="button" id="copy-packet">Copy full packet (.md)</button>
+        <a class="button button-secondary" asp-action="DownloadPacket" asp-route-id="@app.Id">Download .md</a>
+        <a class="button button-secondary" asp-action="DownloadPacketJson" asp-route-id="@app.Id">Download .json</a>
+        <a class="button button-secondary" href="@Model.ChatGptUrl" target="_blank" rel="noopener noreferrer">Open in ChatGPT &nearr;</a>
+        <a class="button button-secondary" href="@Model.ClaudeUrl" target="_blank" rel="noopener noreferrer">Open in Claude &nearr;</a>
+        <button type="button" class="button button-secondary" id="copy-prompt">Copy starter prompt</button>
+    </div>
+    <p class="table-note">
+        Tip: Click <strong>Copy full packet (.md)</strong> and paste it directly into ChatGPT or Claude, or download the <code>.md</code> / <code>.json</code> file and attach it.
+    </p>
+
+    @if (Model.ReadyPrompts.Count > 0)
+    {
+        <h3>Ready prompts for your AI</h3>
+        <div class="ready-prompts-grid">
+            @for (var i = 0; i < Model.ReadyPrompts.Count; i++)
+            {
+                var rp = Model.ReadyPrompts[i];
+                <div class="ready-prompt-card">
+                    <div class="ready-prompt-header">
+                        <strong>@rp.Title</strong>
+                        <button type="button" class="button button-secondary button-small" data-copy-text="@rp.Prompt">Copy prompt</button>
+                    </div>
+                    <p class="ready-prompt-text">@rp.Prompt</p>
+                </div>
+            }
+        </div>
+    }
+
+    <details class="packet-preview-details" open>
+        <summary><strong>Preview full Markdown packet</strong></summary>
+        <pre class="code-block notes-block packet-block" id="packet-markdown-block">@Model.PacketMarkdown</pre>
+    </details>
+</section>
+
+<section class="dashboard-section">
+    <div class="section-heading">
+        <h2>5. Standing answers</h2>
+        @if (Model.Profile is not null && !string.IsNullOrWhiteSpace(Model.Profile.StandingAnswers))
+        {
+            <button type="button" class="button button-secondary button-small" data-copy-text="@Model.Profile.StandingAnswers">Copy standing answers</button>
+        }
+    </div>
+    @if (Model.Profile is null || string.IsNullOrWhiteSpace(Model.Profile.StandingAnswers))
+    {
+        <p class="empty-note">No standing answers saved — <a asp-controller="Profile" asp-action="Edit">add them to your search profile</a> and they'll be here, ready to copy.</p>
+    }
+    else
+    {
+        <pre class="code-block notes-block">@Model.Profile.StandingAnswers</pre>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>6. Captured posting details</h2>
     <dl class="detail-list">
         <dt>Status</dt>
         <dd><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></dd>
+        @if (!string.IsNullOrWhiteSpace(app.Location))
+        {
+            <dt>Location</dt>
+            <dd>@app.Location</dd>
+        }
         @if (!string.IsNullOrWhiteSpace(app.PostingUrl ?? app.Url))
         {
-            <dt>Posting</dt>
+            <dt>Posting URL</dt>
             <dd><a href="@(app.PostingUrl ?? app.Url)" target="_blank" rel="noopener noreferrer">@(app.PostingUrl ?? app.Url)</a></dd>
         }
         @if (app.PayMin.HasValue || app.PayMax.HasValue)
@@ -68,6 +235,17 @@
                 }
             </dd>
         }
+        @if (Model.ChosenResume is not null)
+        {
+            <dt>Packet resume</dt>
+            <dd>
+                <strong>@Model.ChosenResume.Name</strong>
+                @if (Model.ChosenResume.FileName is not null)
+                {
+                    <span class="table-note">(@Model.ChosenResume.FileName)</span>
+                }
+            </dd>
+        }
         @if (!string.IsNullOrWhiteSpace(app.NextAction))
         {
             <dt>Next action</dt>
@@ -79,15 +257,13 @@
                 }
             </dd>
         }
-        @if (!string.IsNullOrWhiteSpace(app.Notes))
-        {
-            <dt>Notes</dt>
-            <dd class="notes-block">@app.Notes</dd>
-        }
     </dl>
     @if (!string.IsNullOrWhiteSpace(app.PostingText))
     {
-        <pre class="code-block notes-block posting-text">@app.PostingText</pre>
+        <details class="packet-preview-details">
+            <summary><strong>View captured posting text</strong></summary>
+            <pre class="code-block notes-block posting-text">@app.PostingText</pre>
+        </details>
     }
     else
     {
@@ -95,110 +271,44 @@
     }
 </section>
 
-<section class="dashboard-section">
-    <h2>Must-have checklist</h2>
-    @if (Model.Profile is null)
-    {
-        <p class="empty-note">No <a asp-controller="Profile" asp-action="Index">search profile</a> yet — create one and add must-haves to see them checked here.</p>
-    }
-    else if (Model.MustHaveChecks.Count == 0)
-    {
-        <p class="empty-note">Your profile lists no must-haves — <a asp-controller="Profile" asp-action="Edit">add some</a> and they'll be checked against the posting here.</p>
-    }
-    else
-    {
-        <ul class="check-list">
-            @foreach (var check in Model.MustHaveChecks)
-            {
-                <li class="@(check.IsPresent ? "check-present" : "check-missing")">
-                    <span class="check-mark" aria-hidden="true">@(check.IsPresent ? "✓" : "✗")</span>
-                    @check.Keyword — @(check.IsPresent ? "in the posting" : "not mentioned")
-                </li>
-            }
-        </ul>
-    }
-</section>
-
-<section class="dashboard-section">
-    <h2>Standing answers</h2>
-    @if (Model.Profile is null || string.IsNullOrWhiteSpace(Model.Profile.StandingAnswers))
-    {
-        <p class="empty-note">No standing answers saved — <a asp-controller="Profile" asp-action="Edit">add them to your search profile</a> and they'll be here, ready to copy.</p>
-    }
-    else
-    {
-        <pre class="code-block notes-block">@Model.Profile.StandingAnswers</pre>
-    }
-</section>
-
-<section class="dashboard-section">
-    <h2>Resumes</h2>
-    @if (Model.Resumes.Count == 0)
-    {
-        <p class="empty-note">No resume versions yet — <a asp-controller="Resumes" asp-action="Index">add one</a>.</p>
-    }
-    else
-    {
-        <ul class="resume-list">
-            @foreach (var resume in Model.Resumes)
-            {
-                <li>
-                    <strong>@resume.Name</strong>
-                    @if (Model.ChosenResume?.Id == resume.Id)
-                    {
-                        <span class="status-badge status-active">Used for this packet</span>
-                    }
-                    @if (resume.FileName is not null)
-                    {
-                        <span class="file-meta">File uploaded: @resume.FileName</span>
-                    }
-                    else
-                    {
-                        <span class="file-meta">No file uploaded</span>
-                    }
-                </li>
-            }
-        </ul>
-    }
-</section>
-
-<section class="dashboard-section">
-    <h2>AI packet</h2>
-    <p class="page-note">
-        Hand this packet to your own AI assistant. It contains the posting, the
-        fit check, your profile and standing answers, your resume's text, and
-        strict instructions to use only these facts and to stop before any
-        submission. JobHunt HQ never submits anything for you.
-    </p>
-    <p>Application platform detected from the posting URL: <strong>@Model.AtsDetectedName</strong></p>
-    <p class="button-row">
-        <a class="button" asp-action="DownloadPacket" asp-route-id="@app.Id">Download .md</a>
-        <a class="button button-secondary" asp-action="DownloadPacketJson" asp-route-id="@app.Id">Download .json</a>
-        <a class="button button-secondary" href="@Model.ChatGptUrl" target="_blank" rel="noopener noreferrer">Open in ChatGPT</a>
-        <a class="button button-secondary" href="@Model.ClaudeUrl" target="_blank" rel="noopener noreferrer">Open in Claude</a>
-        <button type="button" class="button button-secondary" id="copy-prompt">Copy prompt</button>
-    </p>
-    <p class="page-note">
-        The ChatGPT and Claude buttons open a new chat with a short starter
-        prompt — download the packet first, then attach or paste it into that
-        chat. The packet itself is never put in a URL.
-    </p>
-    <pre class="code-block notes-block packet-block">@Model.PacketMarkdown</pre>
-</section>
-
-<p><a asp-action="Index">&larr; Back to applications</a></p>
+<p><a asp-action="Index">&larr; Back to applications</a> &middot; <a asp-controller="Board" asp-action="Index">Back to board</a></p>
 
 @section Scripts {
     <script>
-        document.getElementById('copy-prompt')?.addEventListener('click', async (event) => {
-            const button = event.currentTarget;
-            try {
-                await navigator.clipboard.writeText(@Html.Raw(Json.Serialize(Model.AiShortPrompt)));
-                button.textContent = 'Copied';
-            } catch {
-                button.textContent = 'Copy failed — the packet text above has everything';
+        (function () {
+            function bindCopyButton(button, getText, defaultLabel) {
+                if (!button) return;
+                button.addEventListener('click', async function () {
+                    try {
+                        await navigator.clipboard.writeText(getText());
+                        button.textContent = 'Copied ✓';
+                    } catch {
+                        button.textContent = 'Copy failed';
+                    }
+                    setTimeout(function () { button.textContent = defaultLabel; }, 2200);
+                });
             }
-            setTimeout(() => { button.textContent = 'Copy prompt'; }, 2500);
-        });
+
+            bindCopyButton(
+                document.getElementById('copy-prompt'),
+                function () { return @Html.Raw(Json.Serialize(Model.AiShortPrompt)); },
+                'Copy starter prompt'
+            );
+
+            bindCopyButton(
+                document.getElementById('copy-packet'),
+                function () { return @Html.Raw(Json.Serialize(Model.PacketMarkdown)); },
+                'Copy full packet (.md)'
+            );
+
+            document.querySelectorAll('[data-copy-text]').forEach(function (btn) {
+                var original = btn.textContent;
+                bindCopyButton(
+                    btn,
+                    function () { return btn.getAttribute('data-copy-text') || ''; },
+                    original
+                );
+            });
+        })();
     </script>
 }

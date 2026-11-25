@@ -3,29 +3,57 @@
 
 @{
     ViewData["Title"] = "Board";
+    ViewData["WideContainer"] = true;
     var allStatuses = Enum.GetValues<ApplicationStatus>();
 }
 
 <div class="page-heading">
     <h1>Pipeline board</h1>
-    <a class="button" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
+    <span class="heading-actions">
+        <a class="button" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
+        <a class="button button-secondary" asp-controller="Applications" asp-action="Create">Add application</a>
+        <a class="button button-secondary" asp-controller="Applications" asp-action="Index">Table view</a>
+    </span>
 </div>
 <p class="page-note">
     Every application, grouped by where it stands. Drag a card to another
     column to move it — or use the status menu on the card, which does the
-    same thing. The company name opens the application's details.
+    same thing. Moving a card to <strong>Applied</strong> automatically sets today's applied date if none was set.
 </p>
+
+<div class="board-toolbar" role="region" aria-label="Board filters">
+    <div class="filter-group filter-search">
+        <label for="board-search" class="visually-hidden">Filter cards by company or role</label>
+        <input type="search" id="board-search" placeholder="Filter cards by company or role…" />
+    </div>
+    <div class="filter-group">
+        <label for="board-fit-filter">Fit</label>
+        <select id="board-fit-filter">
+            <option value="">All fit verdicts</option>
+            <option value="strong-fit">Strong fit</option>
+            <option value="possible">Possible</option>
+            <option value="poor-fit">Poor fit</option>
+            <option value="blocked">Blocked</option>
+            <option value="not-checked">Not checked</option>
+        </select>
+    </div>
+    <label class="board-toggle-label">
+        <input type="checkbox" id="board-hide-closed" />
+        Hide closed columns (Rejected / Ghosted / Withdrawn)
+    </label>
+</div>
 
 @* The token board.js posts back to Board/Move (the action is antiforgery-protected). *@
 @Html.AntiForgeryToken()
 
 <div id="board-error" class="board-error" role="alert" hidden></div>
 
-<div class="board">
+<div class="board" id="pipeline-board">
     @foreach (var column in Model.Columns)
     {
         var statusSlug = column.Status.ToString().ToLowerInvariant();
-        <section class="board-column board-column-@statusSlug" data-column data-status="@column.Status">
+        var isClosed = column.Status.IsClosed();
+        <section class="board-column board-column-@statusSlug" data-column data-status="@column.Status" data-closed="@(isClosed ? "true" : "false")">
             <h2 class="board-column-title">
                 <span class="status-pill status-pill-@statusSlug">@column.Status</span>
                 <span class="board-count" data-count>@column.Applications.Count</span>
@@ -43,13 +71,27 @@
                 {
                     var fitSlug = (app.FitVerdict ?? "not-checked").ToLowerInvariant().Replace(" ", "-");
                     var overdue = app.NextActionDue.HasValue && !app.Status.IsClosed() && app.NextActionDue.Value < Model.Today;
-                    <article class="board-card" draggable="true" data-card data-id="@app.Id" data-status="@app.Status">
-                        <a class="board-card-company board-card-link" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a>
+                    <article class="board-card" draggable="true" data-card data-id="@app.Id" data-status="@app.Status" data-fit="@fitSlug" data-text="@($"{app.Company} {app.RoleTitle} {app.Location}".ToLowerInvariant())">
+                        <div class="board-card-top">
+                            <a class="board-card-company board-card-link" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a>
+                            @if (app.Status == ApplicationStatus.Screening || app.Status == ApplicationStatus.Interview || app.Status == ApplicationStatus.Offer)
+                            {
+                                <a class="board-card-prepare" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" title="Interview prep &amp; cheat sheet">Interview</a>
+                            }
+                            else
+                            {
+                                <a class="board-card-prepare" asp-controller="Applications" asp-action="Prepare" asp-route-id="@app.Id" title="Prepare &amp; AI packet">Prepare</a>
+                            }
+                        </div>
                         <span class="board-card-role">@app.RoleTitle</span>
                         <span class="board-card-meta">
                             @if (app.FitVerdict is not null)
                             {
                                 <span class="status-pill fit-pill fit-@fitSlug">@app.FitVerdict</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(app.BlockingQuestion) && app.Status == ApplicationStatus.Saved)
+                            {
+                                <span class="due-soon" title="@app.BlockingQuestion">Needs answer</span>
                             }
                             @if (app.NextActionDue.HasValue)
                             {

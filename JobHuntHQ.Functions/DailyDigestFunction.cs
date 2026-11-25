@@ -32,6 +32,22 @@ public class DailyDigestFunction
         ORDER BY u.Email, a.NextActionDue, a.Company;
         """;
 
+    private const string UpcomingInterviewsSql = """
+        IF OBJECT_ID(N'dbo.InterviewRounds', N'U') IS NOT NULL
+        BEGIN
+            SELECT u.Email AS UserEmail, a.Company, a.RoleTitle, r.RoundNumber, r.RoundType, r.ScheduledLocal, r.TimeZoneLabel
+            FROM dbo.InterviewRounds r
+            INNER JOIN dbo.JobApplications a ON a.Id = r.JobApplicationId
+            INNER JOIN dbo.AspNetUsers u ON u.Id = r.UserId
+            WHERE r.Completed = 0
+              AND r.ScheduledLocal IS NOT NULL
+              AND r.ScheduledLocal >= DATEADD(day, -1, GETUTCDATE())
+              AND r.ScheduledLocal <= DATEADD(day, 7, GETUTCDATE())
+              AND a.Status NOT IN (5, 6, 7)
+            ORDER BY u.Email, r.ScheduledLocal, r.RoundNumber;
+        END
+        """;
+
     private readonly ILogger _logger;
 
     public DailyDigestFunction(ILoggerFactory loggerFactory)
@@ -40,6 +56,7 @@ public class DailyDigestFunction
     }
 
     private sealed record DigestItem(string Company, string RoleTitle, string? NextAction, DateOnly Due);
+    private sealed record DigestInterview(string Company, string RoleTitle, int RoundNumber, string RoundType, DateTime ScheduledLocal, string? TimeZoneLabel);
 
     // NCRONTAB "0 0 12 * * *" = 12:00:00 UTC every day — that's 7:00 AM EST /
     // 8:00 AM EDT, so the digest lands with the morning coffee year-round.
@@ -57,9 +74,11 @@ public class DailyDigestFunction
         }
 
         var byUser = await LoadDueFollowUpsAsync(connectionString);
-        if (byUser.Count == 0)
+        var interviewsByUser = await LoadUpcomingInterviewsAsync(connectionString);
+        var allEmails = byUser.Keys.Union(interviewsByUser.Keys, StringComparer.OrdinalIgnoreCase).ToList();
+        if (allEmails.Count == 0)
         {
-            _logger.LogInformation("No follow-ups due — no digest emails to send.");
+            _logger.LogInformation("No upcoming interviews or follow-ups due — no digest emails to send.");
             return;
         }
 
@@ -67,23 +86,26 @@ public class DailyDigestFunction
         var fromAddress = Environment.GetEnvironmentVariable("DigestFromAddress");
         if (string.IsNullOrWhiteSpace(acsConnectionString) || string.IsNullOrWhiteSpace(fromAddress))
         {
-            _logger.LogError("AcsEmailConnectionString and/or DigestFromAddress app settings are not configured; {UserCount} digest(s) cannot be sent.", byUser.Count);
+            _logger.LogError("AcsEmailConnectionString and/or DigestFromAddress app settings are not configured; {UserCount} digest(s) cannot be sent.", allEmails.Count);
             return;
         }
 
         var emailClient = new EmailClient(acsConnectionString);
         var todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        foreach (var (userEmail, items) in byUser)
+        foreach (var userEmail in allEmails)
         {
+            var items = byUser.TryGetValue(userEmail, out var followUps) ? followUps : new List<DigestItem>();
+            var interviews = interviewsByUser.TryGetValue(userEmail, out var rounds) ? rounds : new List<DigestInterview>();
+
             // One user's failure must not stop the remaining digests.
             try
             {
-                await SendDigestAsync(emailClient, fromAddress, userEmail, items, todayUtc);
+                await SendDigestAsync(emailClient, fromAddress, userEmail, items, interviews, todayUtc);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send the digest to {Email} ({Count} item(s) skipped).", userEmail, items.Count);
+                _logger.LogError(ex, "Failed to send the digest to {Email} ({Count} item(s) skipped).", userEmail, items.Count + interviews.Count);
             }
         }
     }
@@ -124,40 +146,106 @@ public class DailyDigestFunction
         return byUser;
     }
 
-    private async Task SendDigestAsync(EmailClient emailClient, string fromAddress, string userEmail,
-        List<DigestItem> items, DateOnly todayUtc)
+    private async Task<Dictionary<string, List<DigestInterview>>> LoadUpcomingInterviewsAsync(string connectionString)
     {
-        var subject = $"JobHunt HQ — {items.Count} follow-up{(items.Count == 1 ? "" : "s")} due this week";
+        var byUser = new Dictionary<string, List<DigestInterview>>(StringComparer.OrdinalIgnoreCase);
 
-        var plainLines = new List<string>
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new SqlCommand(UpcomingInterviewsSql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!reader.HasRows)
         {
-            $"You have {items.Count} follow-up{(items.Count == 1 ? "" : "s")} due in the next 7 days:",
-            ""
-        };
-        var htmlItems = new List<string>();
+            return byUser;
+        }
 
-        foreach (var item in items)
+        while (await reader.ReadAsync())
         {
-            var overdue = item.Due < todayUtc;
-            var dueText = item.Due.ToString("yyyy-MM-dd") + (overdue ? " (OVERDUE)" : "");
-            var actionText = string.IsNullOrWhiteSpace(item.NextAction) ? "—" : item.NextAction;
+            var userEmail = reader.GetString(0);
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                continue;
+            }
 
-            plainLines.Add($"- {item.Company} — {item.RoleTitle}");
-            plainLines.Add($"  Next action: {actionText}");
-            plainLines.Add($"  Due: {dueText}");
+            var round = new DigestInterview(
+                Company: reader.GetString(1),
+                RoleTitle: reader.GetString(2),
+                RoundNumber: reader.GetInt32(3),
+                RoundType: reader.GetString(4),
+                ScheduledLocal: reader.GetDateTime(5),
+                TimeZoneLabel: reader.IsDBNull(6) ? null : reader.GetString(6));
+
+            if (!byUser.TryGetValue(userEmail, out var list))
+            {
+                list = new List<DigestInterview>();
+                byUser[userEmail] = list;
+            }
+            list.Add(round);
+        }
+
+        return byUser;
+    }
+
+    private async Task SendDigestAsync(EmailClient emailClient, string fromAddress, string userEmail,
+        List<DigestItem> items, List<DigestInterview> interviews, DateOnly todayUtc)
+    {
+        var subject = interviews.Count > 0
+            ? $"JobHunt HQ — {interviews.Count} upcoming interview{(interviews.Count == 1 ? "" : "s")} & {items.Count} follow-up{(items.Count == 1 ? "" : "s")}"
+            : $"JobHunt HQ — {items.Count} follow-up{(items.Count == 1 ? "" : "s")} due this week";
+
+        var plainLines = new List<string>();
+        var htmlBody = "";
+
+        if (interviews.Count > 0)
+        {
+            plainLines.Add($"Upcoming interviews ({interviews.Count}):");
             plainLines.Add("");
+            var interviewHtmlItems = new List<string>();
+            foreach (var r in interviews)
+            {
+                var tz = string.IsNullOrWhiteSpace(r.TimeZoneLabel) ? "" : $" {r.TimeZoneLabel}";
+                plainLines.Add($"* {r.Company} — {r.RoleTitle}");
+                plainLines.Add($"  Round {r.RoundNumber}: {r.RoundType} at {r.ScheduledLocal:yyyy-MM-dd HH:mm}{tz}");
+                plainLines.Add("");
 
-            htmlItems.Add(
-                $"<li><strong>{WebUtility.HtmlEncode(item.Company)}</strong> — {WebUtility.HtmlEncode(item.RoleTitle)}<br/>" +
-                $"Next action: {WebUtility.HtmlEncode(actionText)}<br/>" +
-                $"Due: {item.Due:yyyy-MM-dd}{(overdue ? " <strong>(OVERDUE)</strong>" : "")}</li>");
+                interviewHtmlItems.Add(
+                    $"<li><strong>{WebUtility.HtmlEncode(r.Company)}</strong> — {WebUtility.HtmlEncode(r.RoleTitle)}<br/>" +
+                    $"Round {r.RoundNumber} ({WebUtility.HtmlEncode(r.RoundType)}): <strong>{r.ScheduledLocal:yyyy-MM-dd HH:mm}{WebUtility.HtmlEncode(tz)}</strong></li>");
+            }
+            htmlBody += $"<p><strong>Upcoming interviews ({interviews.Count}):</strong></p><ul>{string.Join("", interviewHtmlItems)}</ul>";
+        }
+
+        if (items.Count > 0)
+        {
+            plainLines.Add($"You have {items.Count} follow-up{(items.Count == 1 ? "" : "s")} due in the next 7 days:");
+            plainLines.Add("");
+            var htmlItems = new List<string>();
+
+            foreach (var item in items)
+            {
+                var overdue = item.Due < todayUtc;
+                var dueText = item.Due.ToString("yyyy-MM-dd") + (overdue ? " (OVERDUE)" : "");
+                var actionText = string.IsNullOrWhiteSpace(item.NextAction) ? "—" : item.NextAction;
+
+                plainLines.Add($"- {item.Company} — {item.RoleTitle}");
+                plainLines.Add($"  Next action: {actionText}");
+                plainLines.Add($"  Due: {dueText}");
+                plainLines.Add("");
+
+                htmlItems.Add(
+                    $"<li><strong>{WebUtility.HtmlEncode(item.Company)}</strong> — {WebUtility.HtmlEncode(item.RoleTitle)}<br/>" +
+                    $"Next action: {WebUtility.HtmlEncode(actionText)}<br/>" +
+                    $"Due: {item.Due:yyyy-MM-dd}{(overdue ? " <strong>(OVERDUE)</strong>" : "")}</li>");
+            }
+
+            htmlBody += $"<p>You have <strong>{items.Count}</strong> follow-up{(items.Count == 1 ? "" : "s")} due in the next 7 days:</p><ul>{string.Join("", htmlItems)}</ul>";
         }
 
         plainLines.Add("— JobHunt HQ");
 
         var html = "<html><body>"
-            + $"<p>You have <strong>{items.Count}</strong> follow-up{(items.Count == 1 ? "" : "s")} due in the next 7 days:</p>"
-            + "<ul>" + string.Join("", htmlItems) + "</ul>"
+            + htmlBody
             + "<p>— JobHunt HQ</p>"
             + "</body></html>";
 
@@ -170,6 +258,6 @@ public class DailyDigestFunction
 
         EmailSendOperation operation = await emailClient.SendAsync(WaitUntil.Completed, message);
         _logger.LogInformation("Digest sent to {Email} ({Count} item(s)): message id {MessageId}, status {Status}.",
-            userEmail, items.Count, operation.Id, operation.Value.Status);
+            userEmail, items.Count + interviews.Count, operation.Id, operation.Value.Status);
     }
 }

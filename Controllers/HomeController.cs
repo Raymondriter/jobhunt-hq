@@ -61,11 +61,52 @@ public class HomeController : Controller
             .Take(5)
             .ToListAsync();
 
+        var upcomingInterviews = await _context.InterviewRounds
+            .Include(r => r.JobApplication)
+            .Where(r => r.UserId == userId && !r.Completed)
+            .OrderBy(r => r.ScheduledLocal == null)
+            .ThenBy(r => r.ScheduledLocal)
+            .ThenBy(r => r.RoundNumber)
+            .ToListAsync();
+
+        var activeInterviewApps = await mine
+            .Include(a => a.InterviewRounds)
+            .Where(a => a.Status == ApplicationStatus.Screening || a.Status == ApplicationStatus.Interview)
+            .OrderByDescending(a => a.UpdatedUtc)
+            .ToListAsync();
+
+        var hasProfile = await _context.SearchProfiles
+            .AnyAsync(p => p.UserId == userId);
+        var resumes = await _context.ResumeVersions
+            .Where(r => r.UserId == userId)
+            .Select(r => new { r.Id, HasFile = r.BlobName != null })
+            .ToListAsync();
+
+        var activeCount = statusCounts
+            .Where(kv => !kv.Key.IsClosed())
+            .Sum(kv => kv.Value);
+        var appliedCount = statusCounts
+            .Where(kv => kv.Key != ApplicationStatus.Saved && kv.Key != ApplicationStatus.Withdrawn)
+            .Sum(kv => kv.Value);
+        var respondedCount =
+            statusCounts[ApplicationStatus.Screening]
+            + statusCounts[ApplicationStatus.Interview]
+            + statusCounts[ApplicationStatus.Offer]
+            + statusCounts[ApplicationStatus.Rejected];
+
         var model = new DashboardViewModel
         {
             StatusCounts = statusCounts,
             TotalApplications = statusCounts.Values.Sum(),
+            ActiveApplicationsCount = activeCount,
+            AppliedCount = appliedCount,
+            RespondedCount = respondedCount,
+            HasSearchProfile = hasProfile,
+            HasResumeVersion = resumes.Count > 0,
+            HasUploadedResumePdf = resumes.Any(r => r.HasFile),
             DueSoon = dueSoon,
+            UpcomingInterviews = upcomingInterviews,
+            ActiveInterviewApplications = activeInterviewApps,
             Today = today,
             RecentlyUpdated = recent
         };

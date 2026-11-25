@@ -7,8 +7,9 @@
 <p>
     Upload a <code>.csv</code> file (up to 2 MB) with one application per row.
     The first row must be a header row. Imported rows are added to
-    <em>your</em> applications — importing the same file twice will create
-    duplicates.
+    <em>your</em> applications — if you re-import the same file, rows matching an
+    existing application (same Company, Title, DateApplied, and Url) are
+    automatically skipped so duplicates aren't created.
 </p>
 
 <h2>Expected format</h2>
@@ -45,7 +46,17 @@ Example Corp,Senior Software Engineer,Applied,2026-11-01,120000,150000</pre>
         <input type="file" id="csvFile" name="csvFile" accept=".csv" />
     </div>
     <div class="form-actions">
-        <button type="submit" class="button">Import</button>
+        <button type="submit" class="button">Import CSV</button>
         <a asp-controller="Applications" asp-action="Index">Cancel</a>
     </div>
 </form>
+
+<section class="dashboard-section">
+    <h2>Try with sample demo data</h2>
+    <p class="page-note">
+        Want to explore the pipeline board, follow-up triage, and AI packets right away? Load the four fictional sample applications from <code>seed/applications-seed.csv</code> with one click.
+    </p>
+    <form asp-action="LoadDemoSeed" method="post">
+        <button type="submit" class="button button-secondary">Load 4 sample demo applications</button>
+    </form>
+</section>

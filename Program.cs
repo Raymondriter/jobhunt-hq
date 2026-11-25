@@ -26,8 +26,24 @@ if (appInsightsConfigured)
 }
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var useSqlite = builder.Environment.IsDevelopment()
+    && connectionString.Contains(".db", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+{
+    if (useSqlite)
+    {
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString, sqlOptions =>
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 6,
+                maxRetryDelay: TimeSpan.FromSeconds(15),
+                errorNumbersToAdd: null));
+    }
+});
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -36,16 +52,28 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
 // in Azure the AZURE_CLIENT_ID app setting points it at this app's
 // user-assigned managed identity, so there are no storage account keys
 // anywhere; locally it falls back to developer credentials (Azure CLI /
-// Visual Studio sign-in). The client is only constructed here — no token is
-// requested until the first blob call, so the app starts fine without one.
+// Visual Studio sign-in) or an optional Development-only LocalFolder.
 builder.Services.Configure<BlobStorageOptions>(
     builder.Configuration.GetSection(BlobStorageOptions.SectionName));
-builder.Services.AddSingleton(sp =>
+var localBlobFolder = builder.Environment.IsDevelopment()
+    ? builder.Configuration[$"{BlobStorageOptions.SectionName}:{nameof(BlobStorageOptions.LocalFolder)}"]
+    : null;
+if (!string.IsNullOrWhiteSpace(localBlobFolder))
 {
-    var options = sp.GetRequiredService<IOptions<BlobStorageOptions>>().Value;
-    return new BlobServiceClient(new Uri(options.ServiceUri), new DefaultAzureCredential());
-});
-builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
+    var resolvedFolder = Path.IsPathRooted(localBlobFolder)
+        ? localBlobFolder
+        : Path.Combine(builder.Environment.ContentRootPath, localBlobFolder);
+    builder.Services.AddScoped<IResumeStorageService>(_ => new LocalResumeStorageService(resolvedFolder));
+}
+else
+{
+    builder.Services.AddSingleton(sp =>
+    {
+        var options = sp.GetRequiredService<IOptions<BlobStorageOptions>>().Value;
+        return new BlobServiceClient(new Uri(options.ServiceUri), new DefaultAzureCredential());
+    });
+    builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
+}
 
 // M4: deterministic fit check + bring-your-own-AI packet generation.
 // Phase 2: resume PDF text extraction for the packet, and the SSRF-guarded
@@ -54,6 +82,7 @@ builder.Services.AddScoped<IResumeStorageService, ResumeStorageService>();
 // every hop against its SSRF guards.
 builder.Services.AddScoped<FitCheckService>();
 builder.Services.AddScoped<AiPacketService>();
+builder.Services.AddScoped<InterviewPacketService>();
 builder.Services.AddScoped<ResumeTextService>();
 builder.Services.AddHttpClient<PostingFetchService>()
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
@@ -71,12 +100,42 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        db.Database.Migrate();
+        if (useSqlite)
+        {
+            Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "App_Data"));
+            db.Database.EnsureCreated();
+        }
+        else
+        {
+            db.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Failed to apply database migrations at startup. The app will start, but database-backed pages will not work until the database is reachable.");
+        logger.LogWarning(ex, "Initial database migration attempt did not complete (Azure SQL AutoPause may still be waking up). Scheduling background retry.");
+        if (!useSqlite)
+        {
+            _ = Task.Run(async () =>
+            {
+                foreach (var delaySeconds in new[] { 20, 30, 45 })
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+                    try
+                    {
+                        using var retryScope = app.Services.CreateScope();
+                        var retryDb = retryScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                        await retryDb.Database.MigrateAsync();
+                        logger.LogInformation("Background database migration succeeded after Azure SQL wake-up.");
+                        return;
+                    }
+                    catch (Exception retryEx)
+                    {
+                        logger.LogWarning(retryEx, "Background database migration retry failed; will retry if attempts remain.");
+                    }
+                }
+            });
+        }
     }
 }
 

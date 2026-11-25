@@ -70,6 +70,17 @@ public class ApplicationFormViewModel
     [Display(Name = "Posting pay max")]
     public int? PayMax { get; set; }
 
+    [StringLength(200)]
+    [Display(Name = "Submission confirmation / reference")]
+    public string? ConfirmationReference { get; set; }
+
+    [StringLength(1000)]
+    [Display(Name = "Open question / blocker before submitting")]
+    public string? BlockingQuestion { get; set; }
+
+    /// <summary>Display-only outcome note when using "Fetch from URL" on Edit.</summary>
+    public string? FetchNote { get; set; }
+
     /// <summary>The current user's resume versions, for the "Resume used" dropdown.</summary>
     public List<SelectListItem> ResumeOptions { get; set; } = new();
 
@@ -78,41 +89,49 @@ public class ApplicationFormViewModel
         Id = app.Id,
         Company = app.Company,
         RoleTitle = app.RoleTitle,
-        Url = app.Url,
+        Url = app.PostingUrl ?? app.Url,
         Location = app.Location,
         Status = app.Status,
         DateSaved = app.DateSaved,
         DateApplied = app.DateApplied,
         NextAction = app.NextAction,
         NextActionDue = app.NextActionDue,
-        SalaryMin = app.SalaryMin,
-        SalaryMax = app.SalaryMax,
+        SalaryMin = app.PayMin ?? app.SalaryMin,
+        SalaryMax = app.PayMax ?? app.SalaryMax,
         ResumeVersionId = app.ResumeVersionId,
         Notes = app.Notes,
-        PostingUrl = app.PostingUrl,
+        PostingUrl = app.PostingUrl ?? app.Url,
         PostingText = app.PostingText,
-        PayMin = app.PayMin,
-        PayMax = app.PayMax
+        PayMin = app.PayMin ?? app.SalaryMin,
+        PayMax = app.PayMax ?? app.SalaryMax,
+        ConfirmationReference = app.ConfirmationReference,
+        BlockingQuestion = app.BlockingQuestion
     };
 
     public void ApplyTo(JobApplication app)
     {
+        var effectiveUrl = !string.IsNullOrWhiteSpace(PostingUrl) ? PostingUrl : Url;
+        var effectivePayMin = PayMin ?? SalaryMin;
+        var effectivePayMax = PayMax ?? SalaryMax;
+
         app.Company = Company;
         app.RoleTitle = RoleTitle;
-        app.Url = Url;
+        app.Url = effectiveUrl;
+        app.PostingUrl = effectiveUrl;
         app.Location = Location;
         app.Status = Status;
         app.DateSaved = DateSaved;
         app.DateApplied = DateApplied;
         app.NextAction = NextAction;
         app.NextActionDue = NextActionDue;
-        app.SalaryMin = SalaryMin;
-        app.SalaryMax = SalaryMax;
+        app.SalaryMin = effectivePayMin;
+        app.SalaryMax = effectivePayMax;
+        app.PayMin = effectivePayMin;
+        app.PayMax = effectivePayMax;
         app.ResumeVersionId = ResumeVersionId;
         app.Notes = Notes;
-        app.PostingUrl = PostingUrl;
         app.PostingText = PostingText;
-        app.PayMin = PayMin;
-        app.PayMax = PayMax;
+        app.ConfirmationReference = string.IsNullOrWhiteSpace(ConfirmationReference) ? null : ConfirmationReference.Trim();
+        app.BlockingQuestion = string.IsNullOrWhiteSpace(BlockingQuestion) ? null : BlockingQuestion.Trim();
     }
 }

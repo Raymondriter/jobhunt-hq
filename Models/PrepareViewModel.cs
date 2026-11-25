@@ -26,6 +26,10 @@ public class PrepareViewModel
     /// <summary>The generated bring-your-own-AI packet, as Markdown.</summary>
     public string PacketMarkdown { get; set; } = string.Empty;
 
+    /// <summary>Ready prompts from the packet, exposed as interactive copy cards.</summary>
+    public IReadOnlyList<(string Title, string Prompt)> ReadyPrompts { get; set; }
+        = Array.Empty<(string Title, string Prompt)>();
+
     /// <summary>ATS platform detected from the posting URL, for display (e.g. "Greenhouse", "Unknown").</summary>
     public string AtsDetectedName { get; set; } = "Unknown";
 

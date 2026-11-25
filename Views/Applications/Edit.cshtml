@@ -5,12 +5,28 @@
 }
 
 <h1>Edit application</h1>
+@if (!string.IsNullOrWhiteSpace(Model.FetchNote))
+{
+    <p class="fetch-note" role="status">@Model.FetchNote</p>
+}
 
 <form asp-action="Edit" method="post" class="edit-form">
     <input type="hidden" asp-for="Id" />
     <partial name="_ApplicationForm" model="Model" />
     <div class="form-actions">
         <button type="submit" class="button">Save changes</button>
-        <a asp-action="Index">Cancel</a>
+        <a asp-action="Details" asp-route-id="@Model.Id">Cancel</a>
     </div>
 </form>
+
+@section Scripts {
+    <script>
+        document.getElementById('edit-fetch-posting-btn')?.addEventListener('click', function (e) {
+            var btn = e.currentTarget;
+            setTimeout(function () {
+                btn.textContent = 'Fetching posting…';
+                btn.disabled = true;
+            }, 10);
+        });
+    </script>
+}

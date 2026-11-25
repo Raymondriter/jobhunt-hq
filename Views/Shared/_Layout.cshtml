@@ -7,36 +7,93 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    var wideContainer = ViewData["WideContainer"] as bool? == true;
+    string NavClass(string controller, string? action = null)
+    {
+        var match = string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase)
+            && (action is null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
+        return match ? "nav-active" : "";
+    }
+    string? AriaCurrent(string controller, string? action = null)
+    {
+        var match = string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase)
+            && (action is null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
+        return match ? "page" : null;
+    }
+}
     <header class="site-header">
-        <div class="container header-inner">
+        <div class="container @(wideContainer ? "container-wide" : "") header-inner">
             <a class="brand" asp-area="" asp-controller="Home" asp-action="Index"><span class="brand-mark" aria-hidden="true">JH</span><span class="brand-text">JobHunt HQ<small class="brand-tagline">Track every application</small></span></a>
-            <nav class="site-nav">
-                <a asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
-                @if (User.Identity?.IsAuthenticated == true)
-                {
-                    <a asp-area="" asp-controller="Applications" asp-action="Index">Applications</a>
-                    <a asp-area="" asp-controller="Board" asp-action="Index">Board</a>
-                    <a asp-area="" asp-controller="Resumes" asp-action="Index">Resumes</a>
-                    <a asp-area="" asp-controller="Profile" asp-action="Index">Search profile</a>
-                    <a asp-area="" asp-controller="Import" asp-action="Index">Import</a>
-                }
-                <a asp-area="" asp-controller="Home" asp-action="About">About</a>
-                <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" id="nav-toggle">Menu</button>
+            <nav class="site-nav" id="site-nav" aria-label="Primary">
+                <div class="nav-links">
+                    <a class="@NavClass("Home", "Dashboard")" aria-current="@AriaCurrent("Home", "Dashboard")" asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a class="@NavClass("Applications")" aria-current="@AriaCurrent("Applications")" asp-area="" asp-controller="Applications" asp-action="Index">Applications</a>
+                        <a class="@NavClass("Board")" aria-current="@AriaCurrent("Board")" asp-area="" asp-controller="Board" asp-action="Index">Board</a>
+                        <a class="@NavClass("Interviews")" aria-current="@AriaCurrent("Interviews")" asp-area="" asp-controller="Interviews" asp-action="Index">Interviews</a>
+                        <a class="@NavClass("Resumes")" aria-current="@AriaCurrent("Resumes")" asp-area="" asp-controller="Resumes" asp-action="Index">Resumes</a>
+                        <a class="@NavClass("Profile")" aria-current="@AriaCurrent("Profile")" asp-area="" asp-controller="Profile" asp-action="Index">Search profile</a>
+                        <a class="@NavClass("Import")" aria-current="@AriaCurrent("Import")" asp-area="" asp-controller="Import" asp-action="Index">Import</a>
+                    }
+                    else
+                    {
+                        <a class="@NavClass("Home", "About")" aria-current="@AriaCurrent("Home", "About")" asp-area="" asp-controller="Home" asp-action="About">About</a>
+                        <a class="@NavClass("Home", "Privacy")" aria-current="@AriaCurrent("Home", "Privacy")" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                    }
+                </div>
                 <partial name="_LoginPartial" />
             </nav>
         </div>
     </header>
 
-    <main role="main" class="container site-main">
+    <main role="main" class="container @(wideContainer ? "container-wide" : "") site-main">
+        @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="flash-banner flash-success" role="status">
+                <span>@statusMessage</span>
+            </div>
+        }
+        @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="flash-banner flash-error" role="alert">
+                <span>@errorMessage</span>
+            </div>
+        }
         @RenderBody()
     </main>
 
     <footer class="site-footer">
-        <div class="container">
-            &copy; 2026 JobHunt HQ &middot; Track every application, never miss a follow-up. &middot; <a asp-area="" asp-controller="Home" asp-action="About">About</a> &middot; <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        <div class="container @(wideContainer ? "container-wide" : "") footer-inner">
+            <span>&copy; 2026 JobHunt HQ &middot; Track every application, never miss a follow-up.</span>
+            <span class="footer-links">
+                <a asp-area="" asp-controller="Home" asp-action="About">About</a> &middot;
+                <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <text> &middot; Signed in as @User.Identity?.Name</text>
+                }
+            </span>
         </div>
     </footer>
 
+    <script>
+        (function () {
+            var toggle = document.getElementById('nav-toggle');
+            var nav = document.getElementById('site-nav');
+            if (toggle && nav) {
+                toggle.addEventListener('click', function () {
+                    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+                    toggle.setAttribute('aria-expanded', String(!expanded));
+                    nav.classList.toggle('nav-open', !expanded);
+                });
+            }
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

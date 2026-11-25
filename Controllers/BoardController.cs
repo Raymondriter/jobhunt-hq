@@ -105,10 +105,19 @@ public class BoardController : Controller
         if (application.Status != status)
         {
             application.Status = status;
+            if (status == ApplicationStatus.Applied && !application.DateApplied.HasValue)
+            {
+                application.DateApplied = DateOnly.FromDateTime(DateTime.Today);
+            }
             application.UpdatedUtc = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
 
-        return Json(new { ok = true, status = status.ToString() });
+        return Json(new
+        {
+            ok = true,
+            status = status.ToString(),
+            dateApplied = application.DateApplied?.ToString("yyyy-MM-dd")
+        });
     }
 }

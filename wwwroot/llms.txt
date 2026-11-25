@@ -23,6 +23,14 @@ Azure (ASP.NET Core, Azure SQL, Blob Storage) by a solo developer.
   2) holding one posting, its fit verdict, the user's profile and standing
   answers, and their resume's text — wrapped in instructions for the user's
   own AI assistant.
+- Interview Command Center: multi-round interview tracking, `.ics` calendar
+  export, reusable STAR Story Bank, Live Call Cheat Sheet (`?live=true`), and
+  fact-locked Interview AI Packets for mock interviews and coaching.
+- Personal REST API v1 (`/api/v1`): scoped `Bearer jhq_…` tokens for reading
+  criteria (`GET /api/v1/profile`), running fit checks (`POST /api/v1/fit-check`),
+  fetching Application & Interview packets, and idempotently syncing external
+  agent outcomes (`POST /api/v1/sync/outcome`, `POST /api/v1/sync/batch`,
+  `POST /api/v1/sync/workspace`). There is no submit endpoint — ever.
 
 ## The never-submit principle
 

@@ -2,16 +2,25 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
+@{
+    var currentArea = ViewContext.RouteData.Values["area"]?.ToString();
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+}
+
+<div class="nav-account">
 @if (SignInManager.IsSignedIn(User))
 {
-    <span class="nav-user">Hello, @User.Identity?.Name</span>
-    <a asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage your account">Account</a>
+    <a class="@(currentArea == "Identity" && currentPage.StartsWith("/Account/Manage") ? "nav-active" : "")"
+       asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage your account (@User.Identity?.Name)">Account</a>
     <form class="logout-form" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })" method="post">
         <button type="submit" class="nav-button">Log out</button>
     </form>
 }
 else
 {
-    <a asp-area="Identity" asp-page="/Account/Register">Register</a>
-    <a asp-area="Identity" asp-page="/Account/Login">Log in</a>
+    <a class="@(currentArea == "Identity" && currentPage == "/Account/Register" ? "nav-active" : "")"
+       asp-area="Identity" asp-page="/Account/Register">Register</a>
+    <a class="button button-small @(currentArea == "Identity" && currentPage == "/Account/Login" ? "nav-active-button" : "")"
+       asp-area="Identity" asp-page="/Account/Login">Log in</a>
 }
+</div>

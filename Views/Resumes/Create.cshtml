@@ -5,9 +5,17 @@
 }
 
 <h1>Add resume version</h1>
+<p class="page-note">
+    Give this version a clear name (for example, <em>Senior .NET Backend v2</em>) and optionally attach its PDF now so its text can be included in your AI packets.
+</p>
 
-<form asp-action="Create" method="post" class="edit-form">
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="edit-form">
     <partial name="_ResumeForm" model="Model" />
+    <div class="form-row">
+        <label for="file">Resume PDF (optional, up to 10 MB)</label>
+        <input type="file" id="file" name="file" accept=".pdf,application/pdf" />
+        <span class="table-note">Stored privately in your account and extracted inline when generating AI packets.</span>
+    </div>
     <div class="form-actions">
         <button type="submit" class="button">Save resume</button>
         <a asp-action="Index">Cancel</a>

@@ -1,0 +1,583 @@
+@model JobHuntHQ.Models.InterviewWorkspaceViewModel
+@using JobHuntHQ.Models
+@using JobHuntHQ.Services
+
+@{
+    var app = Model.Application;
+    var focus = Model.FocusRound;
+    var editRound = Model.EditingRound;
+    ViewData["Title"] = Model.LiveMode
+        ? $"Live Cheat Sheet — {app.Company}"
+        : $"Interview Prep — {app.Company}";
+    ViewData["WideContainer"] = true;
+
+    string FormatPay()
+    {
+        var min = app.PayMin ?? app.SalaryMin;
+        var max = app.PayMax ?? app.SalaryMax;
+        if (min.HasValue && max.HasValue) return $"${min.Value:N0} – ${max.Value:N0}";
+        if (min.HasValue) return $"From ${min.Value:N0}";
+        if (max.HasValue) return $"Up to ${max.Value:N0}";
+        return "Not listed";
+    }
+}
+
+@if (Model.LiveMode)
+{
+    <!-- ==================== DISTRACTION-FREE LIVE CALL CHEAT SHEET HUD ==================== -->
+    <div class="cheatsheet-bar no-print">
+        <div>
+            <span class="status-pill status-pill-interview">LIVE CALL CHEAT SHEET</span>
+            <strong style="margin-left: 0.5rem;">@app.Company — @app.RoleTitle</strong>
+            @if (focus is not null)
+            {
+                <span class="file-meta" style="display:inline; margin-left: 0.5rem;">
+                    &middot; Round @focus.RoundNumber: @focus.RoundType
+                    @if (!string.IsNullOrWhiteSpace(focus.Interviewers))
+                    {
+                        <text> with @focus.Interviewers</text>
+                    }
+                </span>
+            }
+        </div>
+        <span class="heading-actions">
+            @if (focus is not null && !string.IsNullOrWhiteSpace(focus.MeetingUrl) && (focus.MeetingUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || focus.MeetingUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+            {
+                var liveLinkLabel = focus.ScheduledLocal.HasValue ? "Join meeting" : "Scheduling / meeting link";
+                <a class="button button-small" href="@focus.MeetingUrl" target="_blank" rel="noopener noreferrer">@liveLinkLabel &nearr;</a>
+            }
+            <button type="button" class="button button-secondary button-small" onclick="window.print()">Print / PDF</button>
+            <a class="button button-secondary button-small" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@focus?.Id">Exit live view</a>
+        </span>
+    </div>
+
+    <div class="cheatsheet-anchors">
+        <span><strong>Posted pay:</strong> @FormatPay()</span>
+        @if (Model.Profile?.PayFloor is int floor)
+        {
+            <span><strong>Your floor:</strong> $@floor.ToString("N0")/yr</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Profile?.RemotePreference))
+        {
+            <span><strong>Remote pref:</strong> @Model.Profile.RemotePreference</span>
+        }
+        <span><strong>Resume sent:</strong> @(Model.ChosenResume?.Name ?? "None linked")</span>
+        @if (!string.IsNullOrWhiteSpace(app.Location))
+        {
+            <span><strong>Location:</strong> @app.Location</span>
+        }
+    </div>
+
+    <div class="cheatsheet-grid">
+        <div class="cheatsheet-col">
+            <section class="prepare-card">
+                <h2>60-second pitch &amp; why @app.Company</h2>
+                @if (!string.IsNullOrWhiteSpace(app.ElevatorPitch))
+                {
+                    <p class="notes-block" style="margin:0;">@app.ElevatorPitch</p>
+                }
+                else
+                {
+                    <p class="empty-note" style="margin:0;">No pitch drafted yet — <a asp-action="Interview" asp-route-id="@app.Id">add your 60-second bullet points</a>.</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(app.CompanyResearch))
+                {
+                    <h3 style="margin: 0.9rem 0 0.35rem; font-size: 0.98rem;">Company &amp; team notes</h3>
+                    <p class="notes-block" style="margin:0; font-size: 0.92rem;">@app.CompanyResearch</p>
+                }
+            </section>
+
+            <section class="prepare-card" style="margin-top: 1rem;">
+                <h2>STAR stories for this call (@Model.AllStories.Count)</h2>
+                @if (Model.AllStories.Count == 0)
+                {
+                    <p class="empty-note" style="margin:0;">No STAR stories saved yet — <a asp-controller="Interviews" asp-action="Index">add 2–3 key stories</a> to keep them at your fingertips here.</p>
+                }
+                else
+                {
+                    var ordered = Model.AllStories
+                        .OrderByDescending(s => Model.MatchedStoryIds.Contains(s.Id))
+                        .ThenBy(s => s.Title);
+                    <div class="cheatsheet-stories">
+                        @foreach (var s in ordered)
+                        {
+                            var isMatch = Model.MatchedStoryIds.Contains(s.Id);
+                            <details class="cheatsheet-story" @(isMatch ? "open" : "")>
+                                <summary>
+                                    <strong>@s.Title</strong>
+                                    @if (isMatch)
+                                    {
+                                        <span class="keyword-chip keyword-chip-good">Matches role</span>
+                                    }
+                                </summary>
+                                <dl class="story-dl" style="margin-top: 0.45rem;">
+                                    @if (!string.IsNullOrWhiteSpace(s.Situation)) { <dt>S</dt><dd>@s.Situation</dd> }
+                                    @if (!string.IsNullOrWhiteSpace(s.Task)) { <dt>T</dt><dd>@s.Task</dd> }
+                                    @if (!string.IsNullOrWhiteSpace(s.Action)) { <dt>A</dt><dd>@s.Action</dd> }
+                                    @if (!string.IsNullOrWhiteSpace(s.Result)) { <dt>R</dt><dd>@s.Result</dd> }
+                                </dl>
+                            </details>
+                        }
+                    </div>
+                }
+            </section>
+
+            @if (Model.MustHaveChecks.Count > 0)
+            {
+                <section class="prepare-card" style="margin-top: 1rem;">
+                    <h2>Your must-haves in posting</h2>
+                    <ul class="check-list">
+                        @foreach (var check in Model.MustHaveChecks)
+                        {
+                            <li class="@(check.IsPresent ? "check-present" : "check-missing")">
+                                <span class="check-mark" aria-hidden="true">@(check.IsPresent ? "✓" : "✗")</span>
+                                <strong>@check.Keyword</strong> — @(check.IsPresent ? "mentioned" : "not mentioned (ask!)")
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+
+        <div class="cheatsheet-col">
+            <section class="prepare-card">
+                <h2>Questions to ask them</h2>
+                @if (focus is not null && !string.IsNullOrWhiteSpace(focus.QuestionsToAsk))
+                {
+                    <p class="notes-block" style="margin:0;">@focus.QuestionsToAsk</p>
+                }
+                else
+                {
+                    <ul style="margin:0; padding-left: 1.2rem; font-size: 0.94rem;">
+                        <li>What does success look like in the first 60–90 days for this role?</li>
+                        <li>What are the most important technical or product challenges the team is tackling next quarter?</li>
+                        <li>How does the engineering team collaborate day-to-day (code reviews, architecture decisions, deployment)?</li>
+                        <li>What are the next steps and timeline in your interview process?</li>
+                    </ul>
+                }
+
+                @if (focus is not null && !string.IsNullOrWhiteSpace(focus.PrepNotes))
+                {
+                    <h3 style="margin: 0.9rem 0 0.35rem; font-size: 0.98rem;">Round prep reminders</h3>
+                    <p class="notes-block" style="margin:0; font-size: 0.92rem;">@focus.PrepNotes</p>
+                }
+            </section>
+
+            @if (focus is not null)
+            {
+                <section class="prepare-card no-print" style="margin-top: 1rem;">
+                    <h2>Live call scratchpad &amp; post-call debrief</h2>
+                    <form asp-action="SaveRoundDebrief" asp-route-id="@app.Id" method="post">
+                        <input type="hidden" name="roundId" value="@focus.Id" />
+                        <input type="hidden" name="live" value="true" />
+                        <div class="form-row">
+                            <label for="live-debrief" class="visually-hidden">Live call notes and debrief</label>
+                            <textarea id="live-debrief" name="debriefNotes" rows="8" placeholder="Jot down what they emphasize, questions they ask, team details, compensation numbers mentioned, and next steps…">@focus.DebriefNotes</textarea>
+                        </div>
+                        <label class="board-toggle-label" style="margin-bottom: 0.65rem;">
+                            <input type="checkbox" name="completed" value="true" checked="@focus.Completed" />
+                            Mark Round @focus.RoundNumber complete
+                        </label>
+                        <div class="button-row">
+                            <button type="submit" class="button button-small">Save notes</button>
+                            <button type="submit" name="followUpPreset" value="24h-thank-you" class="button button-secondary button-small">Done + 24h thank-you reminder</button>
+                            <button type="submit" name="followUpPreset" value="5d-checkin" class="button button-secondary button-small">Done + 5d check-in</button>
+                        </div>
+                    </form>
+                </section>
+            }
+
+            @if (Model.Profile is not null && !string.IsNullOrWhiteSpace(Model.Profile.StandingAnswers))
+            {
+                <section class="prepare-card" style="margin-top: 1rem;">
+                    <h2>Standing answers reference</h2>
+                    <pre class="code-block notes-block" style="margin:0; font-size: 0.85rem;">@Model.Profile.StandingAnswers</pre>
+                </section>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <!-- ==================== FULL INTERVIEW PREP WORKSPACE ==================== -->
+    <div class="page-heading">
+        <div>
+            <h1>Interview prep: @app.Company</h1>
+            <p class="detail-role">@app.RoleTitle <span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()" style="vertical-align: middle; margin-left: 0.4rem;">@app.Status</span></p>
+        </div>
+        <span class="heading-actions">
+            <a class="button" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true" asp-route-focusRoundId="@focus?.Id">Open live call cheat sheet</a>
+            <a class="button button-secondary" asp-action="Prepare" asp-route-id="@app.Id">Application packet</a>
+            <a class="button button-secondary" asp-action="Details" asp-route-id="@app.Id">Details</a>
+            <a class="button button-secondary" asp-action="Edit" asp-route-id="@app.Id">Edit posting</a>
+        </span>
+    </div>
+
+    @if (string.IsNullOrWhiteSpace(app.PostingText))
+    {
+        <div class="flash-banner" style="background: #fff9e6; border-color: #f0d58c; border-left-color: #e0a800;">
+            <strong>Tip — add the job description for sharper mock interviews:</strong>
+            This application doesn't have posting text captured yet (common for CSV imports).
+            <a asp-action="Edit" asp-route-id="@app.Id"><strong>Open Edit &amp; click "Fetch from URL" or paste the posting</strong></a> so your must-have checklist, STAR story matcher, and Interview AI Packet align with every requirement.
+        </div>
+    }
+
+    <div class="cheatsheet-anchors">
+        <span><strong>Posted pay:</strong> @FormatPay()</span>
+        @if (Model.Profile?.PayFloor is int floor)
+        {
+            <span><strong>Your floor:</strong> $@floor.ToString("N0")/yr</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Profile?.RemotePreference))
+        {
+            <span><strong>Remote pref:</strong> @Model.Profile.RemotePreference</span>
+        }
+        <span><strong>Resume sent:</strong> @(Model.ChosenResume?.Name ?? "None linked")</span>
+    </div>
+
+    <section class="dashboard-section">
+        <div class="section-heading">
+            <h2>1. Interview rounds &amp; schedule (@Model.Rounds.Count)</h2>
+            <a class="link-subtle" asp-controller="Interviews" asp-action="Index">All interviews &amp; Story Bank &rarr;</a>
+        </div>
+
+        @if (Model.Rounds.Count > 0)
+        {
+            <div class="rounds-stack">
+                @foreach (var r in Model.Rounds)
+                {
+                    var isFocused = focus?.Id == r.Id;
+                    <article class="round-card @(isFocused ? "round-card-focused" : "")">
+                        <div class="ready-prompt-header">
+                            <div>
+                                <span class="status-pill @(r.Completed ? "status-pill-offer" : "status-pill-interview")">
+                                    Round @r.RoundNumber &middot; @(r.Completed ? "Completed" : "Upcoming")
+                                </span>
+                                <strong style="margin-left: 0.45rem; font-size: 1.05rem;">@r.RoundType</strong>
+                                @if (r.ScheduledLocal.HasValue)
+                                {
+                                    <span class="file-meta" style="display:inline; margin-left: 0.5rem;">
+                                        @r.ScheduledLocal.Value.ToString("yyyy-MM-dd HH:mm") @r.TimeZoneLabel (@r.DurationMinutes min)
+                                    </span>
+                                }
+                            </div>
+                            <span class="row-actions">
+                                @if (!string.IsNullOrWhiteSpace(r.MeetingUrl) && (r.MeetingUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || r.MeetingUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    var roundLinkLabel = r.ScheduledLocal.HasValue ? "Join call" : "Schedule / open link";
+                                    <a class="button button-small" href="@r.MeetingUrl" target="_blank" rel="noopener noreferrer">@roundLinkLabel &nearr;</a>
+                                }
+                                <a asp-action="DownloadInterviewIcs" asp-route-id="@app.Id" asp-route-roundId="@r.Id" title="Download .ics calendar invite">.ics</a>
+                                @if (!isFocused)
+                                {
+                                    <a asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Focus packet here</a>
+                                }
+                                <a asp-action="Interview" asp-route-id="@app.Id" asp-route-editRoundId="@r.Id">Edit</a>
+                                <form asp-action="DeleteInterviewRound" asp-route-id="@app.Id" method="post">
+                                    <input type="hidden" name="roundId" value="@r.Id" />
+                                    <button type="submit" class="link-button">Remove</button>
+                                </form>
+                            </span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(r.Interviewers))
+                        {
+                            <p style="margin: 0.35rem 0 0;"><strong>Interviewer(s):</strong> @r.Interviewers</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(r.PrepNotes))
+                        {
+                            <p class="notes-block" style="margin: 0.35rem 0 0; color: var(--muted); font-size: 0.93rem;"><strong>Focus:</strong> @r.PrepNotes</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(r.QuestionsToAsk))
+                        {
+                            <p class="notes-block" style="margin: 0.35rem 0 0; font-size: 0.93rem;"><strong>Questions to ask:</strong> @r.QuestionsToAsk</p>
+                        }
+
+                        <details class="packet-preview-details" @(r.Completed || !string.IsNullOrWhiteSpace(r.DebriefNotes) ? "open" : "")>
+                            <summary><strong>Debrief &amp; post-call follow-up@(string.IsNullOrWhiteSpace(r.DebriefNotes) ? "" : " (saved)")</strong></summary>
+                            <form asp-action="SaveRoundDebrief" asp-route-id="@app.Id" method="post" class="workspace-form">
+                                <input type="hidden" name="roundId" value="@r.Id" />
+                                <div class="form-row">
+                                    <textarea name="debriefNotes" rows="3" placeholder="Record questions they asked, how your answers landed, compensation/timeline signals, and action items…">@r.DebriefNotes</textarea>
+                                </div>
+                                <div class="button-row">
+                                    <label class="board-toggle-label">
+                                        <input type="checkbox" name="completed" value="true" checked="@r.Completed" />
+                                        Mark round completed
+                                    </label>
+                                    <button type="submit" class="button button-secondary button-small">Save debrief</button>
+                                    <button type="submit" name="followUpPreset" value="24h-thank-you" class="button button-small">Complete + set 24h thank-you reminder</button>
+                                    <button type="submit" name="followUpPreset" value="5d-checkin" class="button button-secondary button-small">Complete + set 5-day check-in</button>
+                                </div>
+                            </form>
+                        </details>
+                    </article>
+                }
+            </div>
+        }
+
+        <details class="packet-preview-details" @(Model.Rounds.Count == 0 || editRound is not null ? "open" : "")>
+            <summary><strong>@(editRound is not null ? $"Edit Round {editRound.RoundNumber} ({editRound.RoundType})" : $"+ Schedule / add Round {Model.NextRoundNumber}")</strong></summary>
+            <form asp-action="SaveInterviewRound" asp-route-id="@app.Id" method="post" class="prepare-workspace-box workspace-form">
+                @if (editRound is not null)
+                {
+                    <input type="hidden" name="roundId" value="@editRound.Id" />
+                }
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="round-num">Round #</label>
+                        <input type="number" id="round-num" name="roundNumber" min="1" max="20" value="@(editRound?.RoundNumber ?? Model.NextRoundNumber)" />
+                    </div>
+                    <div class="form-row">
+                        <label for="round-type">Round type</label>
+                        <input type="text" id="round-type" name="roundType" list="round-type-options" value="@(editRound?.RoundType ?? "Recruiter Screen")" required />
+                        <datalist id="round-type-options">
+                            @foreach (var rt in InterviewRound.CommonRoundTypes)
+                            {
+                                <option value="@rt"></option>
+                            }
+                        </datalist>
+                    </div>
+                    <div class="form-row">
+                        <label for="round-when">Date &amp; time</label>
+                        <input type="datetime-local" id="round-when" name="scheduledLocal" value="@editRound?.ScheduledLocal?.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+                    <div class="form-row">
+                        <label for="round-tz">Time zone</label>
+                        <input type="text" id="round-tz" name="timeZoneLabel" value="@(editRound?.TimeZoneLabel ?? "ET")" placeholder="ET, PT, UTC…" />
+                    </div>
+                    <div class="form-row">
+                        <label for="round-dur">Duration (min)</label>
+                        <input type="number" id="round-dur" name="durationMinutes" min="10" max="480" step="5" value="@(editRound?.DurationMinutes ?? 45)" />
+                    </div>
+                    <div class="form-row">
+                        <label for="round-url">Meeting link / location</label>
+                        <input type="text" id="round-url" name="meetingUrl" value="@editRound?.MeetingUrl" placeholder="https://zoom.us/j/… or Phone call" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="round-who">Interviewer(s) &amp; titles</label>
+                    <input type="text" id="round-who" name="interviewers" value="@editRound?.Interviewers" placeholder="e.g. Jordan Taylor (Senior Engineering Manager)" />
+                </div>
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="round-prep">Round focus &amp; topics to review</label>
+                        <textarea id="round-prep" name="prepNotes" rows="3" placeholder="e.g. 30-min intro + background walkthrough + Azure/.NET architecture questions…">@editRound?.PrepNotes</textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="round-q">Questions you want to ask in this round</label>
+                        <textarea id="round-q" name="questionsToAsk" rows="3" placeholder="e.g. Team roadmap for the next 6 months, deployment cadence, on-call expectations…">@editRound?.QuestionsToAsk</textarea>
+                    </div>
+                </div>
+                <div class="button-row">
+                    <label class="board-toggle-label">
+                        <input type="checkbox" name="syncNextAction" value="true" checked />
+                        Set application's Next Action &amp; Due Date to this interview round
+                    </label>
+                    <button type="submit" class="button">@(editRound is not null ? "Save round changes" : "Save interview round")</button>
+                    @if (editRound is not null)
+                    {
+                        <a class="button button-secondary" asp-action="Interview" asp-route-id="@app.Id">Cancel</a>
+                    }
+                </div>
+            </form>
+        </details>
+    </section>
+
+    <section class="dashboard-section prepare-workspace-box">
+        <h2>2. Your 60-second pitch, company research &amp; resume context</h2>
+        <p class="page-note">
+            Everything saved here flows into both your <strong>Live Call Cheat Sheet</strong> and your <strong>Interview AI Packet</strong> below.
+        </p>
+        <form asp-action="SaveInterviewOverview" asp-route-id="@app.Id" method="post" class="workspace-form">
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="int-status">Pipeline status</label>
+                    <select id="int-status" name="status">
+                        @foreach (var s in Enum.GetValues<ApplicationStatus>())
+                        {
+                            <option value="@s" selected="@(s == app.Status)">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="int-resume">Resume version sent to @app.Company</label>
+                    <select id="int-resume" name="resumeVersionId" asp-items="Model.ResumeOptions">
+                        <option value="">— Latest uploaded resume (default) —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="int-pitch">60-second "Tell me about yourself &amp; why @app.Company" pitch</label>
+                    <textarea id="int-pitch" name="elevatorPitch" rows="4" placeholder="Bullet your spoken arc: current focus → relevant C#/Azure systems you've built → why this team's mission/stack fits what you want next…">@app.ElevatorPitch</textarea>
+                </div>
+                <div class="form-row">
+                    <label for="int-research">Company, product &amp; team research</label>
+                    <textarea id="int-research" name="companyResearch" rows="4" placeholder="Key product lines, customers, engineering blog notes, recent launches, or interviewer background…">@app.CompanyResearch</textarea>
+                </div>
+            </div>
+            <div class="button-row">
+                <button type="submit" class="button">Save pitch &amp; research</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="dashboard-section">
+        <div class="section-heading">
+            <h2>3. STAR Story Bank matched to @app.Company (@Model.MatchedStoryIds.Count of @Model.AllStories.Count matched)</h2>
+            <a class="button button-secondary button-small" asp-controller="Interviews" asp-action="Index" asp-fragment="story-bank">Manage Story Bank</a>
+        </div>
+        @if (Model.AllStories.Count == 0)
+        {
+            <p class="empty-note">
+                You haven't added any STAR stories yet. Add 2–3 real project stories below (or in the <a asp-controller="Interviews" asp-action="Index">Interviews hub</a>) so they match automatically against every posting and anchor your mock interviews.
+            </p>
+        }
+        else
+        {
+            <div class="story-bank-grid">
+                @foreach (var s in Model.AllStories.OrderByDescending(x => Model.MatchedStoryIds.Contains(x.Id)).ThenBy(x => x.Title))
+                {
+                    var matched = Model.MatchedStoryIds.Contains(s.Id);
+                    <article class="story-card @(matched ? "story-card-matched" : "")">
+                        <div class="ready-prompt-header">
+                            <strong>@s.Title</strong>
+                            @if (matched)
+                            {
+                                <span class="keyword-chip keyword-chip-good">Matches posting</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(s.Tags))
+                        {
+                            <p class="file-meta" style="margin: 0 0 0.4rem;">Tags: @s.Tags</p>
+                        }
+                        <dl class="story-dl">
+                            @if (!string.IsNullOrWhiteSpace(s.Situation)) { <dt>S</dt><dd>@s.Situation</dd> }
+                            @if (!string.IsNullOrWhiteSpace(s.Task)) { <dt>T</dt><dd>@s.Task</dd> }
+                            @if (!string.IsNullOrWhiteSpace(s.Action)) { <dt>A</dt><dd>@s.Action</dd> }
+                            @if (!string.IsNullOrWhiteSpace(s.Result)) { <dt>R</dt><dd>@s.Result</dd> }
+                        </dl>
+                    </article>
+                }
+            </div>
+        }
+
+        <details class="packet-preview-details">
+            <summary><strong>+ Quick-add a STAR story right here</strong></summary>
+            <form asp-controller="Interviews" asp-action="SaveStory" method="post" class="prepare-workspace-box workspace-form">
+                <input type="hidden" name="returnUrl" value="@Url.Action("Interview", "Applications", new { id = app.Id, focusRoundId = focus?.Id })" />
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="quick-story-title">Story headline</label>
+                        <input type="text" id="quick-story-title" name="title" required maxlength="200" placeholder="e.g. Built zero-secret Azure cloud pipeline on .NET 10" />
+                    </div>
+                    <div class="form-row">
+                        <label for="quick-story-tags">Skills &amp; themes (comma-separated)</label>
+                        <input type="text" id="quick-story-tags" name="tags" maxlength="500" placeholder="C#, Azure, SQL, Security, CI/CD" />
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="quick-story-s">Situation</label>
+                        <textarea id="quick-story-s" name="situation" rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="quick-story-t">Task</label>
+                        <textarea id="quick-story-t" name="task" rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="quick-story-a">Action</label>
+                        <textarea id="quick-story-a" name="action" rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="quick-story-r">Result</label>
+                        <textarea id="quick-story-r" name="result" rows="2"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="button button-secondary">Save story &amp; refresh packet</button>
+            </form>
+        </details>
+    </section>
+
+    <section class="dashboard-section">
+        <div class="section-heading">
+            <h2>4. Interview prep AI packet</h2>
+            @if (focus is not null)
+            {
+                <span class="ats-badge">Focused on: <strong>Round @focus.RoundNumber — @focus.RoundType</strong></span>
+            }
+        </div>
+        <p class="page-note">
+            Hand this interview packet to ChatGPT, Claude, or any assistant you use. It carries the posting, the exact resume you sent, your STAR Story Bank, your round context, and strict coaching rules so your AI rehearses you from your <strong>real</strong> experience and flags honest bridges for any skill gaps.
+        </p>
+        <div class="button-row packet-actions">
+            <button type="button" class="button" id="copy-interview-packet">Copy full interview packet (.md)</button>
+            <a class="button button-secondary" asp-action="DownloadInterviewPacket" asp-route-id="@app.Id" asp-route-roundId="@focus?.Id">Download .md</a>
+            <a class="button button-secondary" asp-action="DownloadInterviewPacketJson" asp-route-id="@app.Id" asp-route-roundId="@focus?.Id">Download .json</a>
+            <a class="button button-secondary" href="@Model.ChatGptUrl" target="_blank" rel="noopener noreferrer">Coach in ChatGPT &nearr;</a>
+            <a class="button button-secondary" href="@Model.ClaudeUrl" target="_blank" rel="noopener noreferrer">Coach in Claude &nearr;</a>
+            <button type="button" class="button button-secondary" id="copy-interview-starter">Copy starter prompt</button>
+        </div>
+
+        @if (Model.ReadyPrompts.Count > 0)
+        {
+            <h3>Ready coaching prompts for your AI</h3>
+            <div class="ready-prompts-grid">
+                @foreach (var rp in Model.ReadyPrompts)
+                {
+                    <div class="ready-prompt-card">
+                        <div class="ready-prompt-header">
+                            <strong>@rp.Title</strong>
+                            <button type="button" class="button button-secondary button-small" data-copy-text="@rp.Prompt">Copy prompt</button>
+                        </div>
+                        <p class="ready-prompt-text">@rp.Prompt</p>
+                    </div>
+                }
+            </div>
+        }
+
+        <details class="packet-preview-details">
+            <summary><strong>Preview full Markdown interview packet</strong></summary>
+            <pre class="code-block notes-block packet-block">@Model.InterviewPacketMarkdown</pre>
+        </details>
+    </section>
+
+    <p><a asp-controller="Interviews" asp-action="Index">&larr; Back to Interviews hub</a> &middot; <a asp-action="Index">All applications</a></p>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            function bindCopy(btn, getText, label) {
+                if (!btn) return;
+                btn.addEventListener('click', async function () {
+                    try {
+                        await navigator.clipboard.writeText(getText());
+                        btn.textContent = 'Copied ✓';
+                    } catch {
+                        btn.textContent = 'Copy failed';
+                    }
+                    setTimeout(function () { btn.textContent = label; }, 2200);
+                });
+            }
+
+            bindCopy(
+                document.getElementById('copy-interview-packet'),
+                function () { return @Html.Raw(Json.Serialize(Model.InterviewPacketMarkdown)); },
+                'Copy full interview packet (.md)'
+            );
+
+            bindCopy(
+                document.getElementById('copy-interview-starter'),
+                function () { return @Html.Raw(Json.Serialize(Model.AiShortPrompt)); },
+                'Copy starter prompt'
+            );
+
+            document.querySelectorAll('[data-copy-text]').forEach(function (b) {
+                var orig = b.textContent;
+                bindCopy(b, function () { return b.getAttribute('data-copy-text') || ''; }, orig);
+            });
+        })();
+    </script>
+}

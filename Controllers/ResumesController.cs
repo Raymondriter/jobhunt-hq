@@ -11,7 +11,8 @@ namespace JobHuntHQ.Controllers;
 [Authorize]
 public class ResumesController : Controller
 {
-    private const long MaxFileBytes = 10 * 1024 * 1024; // 10 MB
+    private const long MaxFileBytes = 10 * 1024 * 1024; // 10 MB per file
+    public const long MaxUserTotalBytes = 50 * 1024 * 1024; // 50 MB per user total quota
 
     private readonly ApplicationDbContext _context;
     private readonly IResumeStorageService _storage;
@@ -30,12 +31,25 @@ public class ResumesController : Controller
     private async Task<ResumeVersion?> FindMineAsync(int id) =>
         await MyResumes().FirstOrDefaultAsync(r => r.Id == id);
 
+    private async Task<long> GetTotalUsedBytesAsync(int? excludeResumeId = null) =>
+        await MyResumes()
+            .Where(r => r.SizeBytes != null && (excludeResumeId == null || r.Id != excludeResumeId.Value))
+            .SumAsync(r => r.SizeBytes ?? 0);
+
     // GET: Resumes
     public async Task<IActionResult> Index()
     {
         var resumes = await MyResumes()
             .OrderBy(r => r.Name)
             .ToListAsync();
+        var usageCounts = await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId && a.ResumeVersionId != null)
+            .GroupBy(a => a.ResumeVersionId!.Value)
+            .Select(g => new { ResumeId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ResumeId, x => x.Count);
+        ViewData["UsageCounts"] = usageCounts;
+        ViewData["TotalUsedBytes"] = resumes.Sum(r => r.SizeBytes ?? 0);
+        ViewData["MaxUserTotalBytes"] = MaxUserTotalBytes;
         return View(resumes);
     }
 
@@ -48,8 +62,26 @@ public class ResumesController : Controller
     // POST: Resumes/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(ResumeFormViewModel model)
+    public async Task<IActionResult> Create(ResumeFormViewModel model, IFormFile? file)
     {
+        if (file != null && file.Length > 0)
+        {
+            var isPdf = Path.GetExtension(file.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+                && file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase);
+            if (!isPdf)
+            {
+                ModelState.AddModelError(string.Empty, "Only PDF files can be uploaded.");
+            }
+            else if (file.Length > MaxFileBytes)
+            {
+                ModelState.AddModelError(string.Empty, "That PDF file is over the 10 MB limit.");
+            }
+            else if (await GetTotalUsedBytesAsync() + file.Length > MaxUserTotalBytes)
+            {
+                ModelState.AddModelError(string.Empty, "Uploading this PDF would exceed your 50 MB total resume storage limit. Remove an older PDF first.");
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -64,6 +96,27 @@ public class ResumesController : Controller
 
         _context.ResumeVersions.Add(resume);
         await _context.SaveChangesAsync();
+
+        if (file != null && file.Length > 0)
+        {
+            var newBlobName = $"{CurrentUserId}/{resume.Id}/{Guid.NewGuid()}.pdf";
+            await using (var stream = file.OpenReadStream())
+            {
+                await _storage.UploadAsync(newBlobName, stream, file.ContentType);
+            }
+
+            resume.FileName = Path.GetFileName(file.FileName);
+            resume.BlobName = newBlobName;
+            resume.ContentType = file.ContentType;
+            resume.SizeBytes = file.Length;
+            await _context.SaveChangesAsync();
+            TempData["StatusMessage"] = $"Added resume version \"{resume.Name}\" with PDF \"{resume.FileName}\".";
+        }
+        else
+        {
+            TempData["StatusMessage"] = $"Added resume version \"{resume.Name}\". You can attach its PDF file below anytime.";
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -101,6 +154,7 @@ public class ResumesController : Controller
 
         model.ApplyTo(resume);
         await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = $"Updated resume version \"{resume.Name}\".";
         return RedirectToAction(nameof(Index));
     }
 
@@ -135,6 +189,7 @@ public class ResumesController : Controller
         // Applications that used this resume keep their history; the FK is set to null.
         _context.ResumeVersions.Remove(resume);
         await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = $"Deleted resume version \"{resume.Name}\".";
         return RedirectToAction(nameof(Index));
     }
 
@@ -170,6 +225,12 @@ public class ResumesController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        if (await GetTotalUsedBytesAsync(excludeResumeId: resume.Id) + file.Length > MaxUserTotalBytes)
+        {
+            TempData["FileError"] = "Uploading this PDF would exceed your 50 MB total resume storage limit. Remove an older PDF first.";
+            return RedirectToAction(nameof(Index));
+        }
+
         var oldBlobName = resume.BlobName;
         var newBlobName = $"{CurrentUserId}/{resume.Id}/{Guid.NewGuid()}.pdf";
 
@@ -190,6 +251,7 @@ public class ResumesController : Controller
             await _storage.DeleteAsync(oldBlobName);
         }
 
+        TempData["StatusMessage"] = $"Uploaded \"{resume.FileName}\" for resume version \"{resume.Name}\".";
         return RedirectToAction(nameof(Index));
     }
 
@@ -232,6 +294,7 @@ public class ResumesController : Controller
         resume.ContentType = null;
         resume.SizeBytes = null;
         await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = $"Removed PDF file from \"{resume.Name}\".";
         return RedirectToAction(nameof(Index));
     }
 }

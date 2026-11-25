@@ -8,9 +8,13 @@
 
 <p class="import-summary">
     <strong>@Model.ImportedCount</strong> application@(Model.ImportedCount == 1 ? "" : "s") imported.
+    @if (Model.DuplicateCount > 0)
+    {
+        <text><strong>@Model.DuplicateCount</strong> duplicate row@(Model.DuplicateCount == 1 ? "" : "s") skipped (already in your tracker).</text>
+    }
     @if (Model.Skipped.Count > 0)
     {
-        <text><strong>@Model.Skipped.Count</strong> row@(Model.Skipped.Count == 1 ? "" : "s") skipped.</text>
+        <text><strong>@Model.Skipped.Count</strong> invalid row@(Model.Skipped.Count == 1 ? "" : "s") skipped.</text>
     }
 </p>
 

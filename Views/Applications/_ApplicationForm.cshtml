@@ -2,28 +2,32 @@
 
 <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
-<div class="form-row">
-    <label asp-for="Company"></label>
-    <input asp-for="Company" />
-    <span asp-validation-for="Company" class="field-error"></span>
+<div class="form-grid">
+    <div class="form-row">
+        <label asp-for="Company"></label>
+        <input asp-for="Company" />
+        <span asp-validation-for="Company" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="RoleTitle"></label>
+        <input asp-for="RoleTitle" />
+        <span asp-validation-for="RoleTitle" class="field-error"></span>
+    </div>
 </div>
 
-<div class="form-row">
-    <label asp-for="RoleTitle"></label>
-    <input asp-for="RoleTitle" />
-    <span asp-validation-for="RoleTitle" class="field-error"></span>
-</div>
+<div class="form-grid">
+    <div class="form-row">
+        <label asp-for="PostingUrl">Posting URL</label>
+        <input asp-for="PostingUrl" placeholder="https://…" />
+        <span asp-validation-for="PostingUrl" class="field-error"></span>
+    </div>
 
-<div class="form-row">
-    <label asp-for="Url"></label>
-    <input asp-for="Url" />
-    <span asp-validation-for="Url" class="field-error"></span>
-</div>
-
-<div class="form-row">
-    <label asp-for="Location"></label>
-    <input asp-for="Location" />
-    <span asp-validation-for="Location" class="field-error"></span>
+    <div class="form-row">
+        <label asp-for="Location"></label>
+        <input asp-for="Location" placeholder="e.g. Remote (US)" />
+        <span asp-validation-for="Location" class="field-error"></span>
+    </div>
 </div>
 
 <div class="form-grid">
@@ -54,63 +58,72 @@
     </div>
 
     <div class="form-row">
-        <label asp-for="SalaryMin"></label>
-        <input asp-for="SalaryMin" type="number" min="0" step="1000" />
-        <span asp-validation-for="SalaryMin" class="field-error"></span>
+        <label asp-for="PayMin">Annual pay / salary min ($)</label>
+        <input asp-for="PayMin" type="number" min="0" step="1000" />
+        <span asp-validation-for="PayMin" class="field-error"></span>
     </div>
 
     <div class="form-row">
-        <label asp-for="SalaryMax"></label>
-        <input asp-for="SalaryMax" type="number" min="0" step="1000" />
-        <span asp-validation-for="SalaryMax" class="field-error"></span>
+        <label asp-for="PayMax">Annual pay / salary max ($)</label>
+        <input asp-for="PayMax" type="number" min="0" step="1000" />
+        <span asp-validation-for="PayMax" class="field-error"></span>
     </div>
 </div>
 
-<div class="form-row">
-    <label asp-for="NextAction"></label>
-    <input asp-for="NextAction" />
-    <span asp-validation-for="NextAction" class="field-error"></span>
+<div class="form-grid">
+    <div class="form-row">
+        <label asp-for="NextAction"></label>
+        <input asp-for="NextAction" placeholder="e.g. Follow up with recruiter" />
+        <span asp-validation-for="NextAction" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="NextActionDue"></label>
+        <input asp-for="NextActionDue" type="date" />
+        <span asp-validation-for="NextActionDue" class="field-error"></span>
+    </div>
 </div>
 
-<div class="form-row">
-    <label asp-for="NextActionDue"></label>
-    <input asp-for="NextActionDue" type="date" />
-    <span asp-validation-for="NextActionDue" class="field-error"></span>
+<div class="form-grid">
+    <div class="form-row">
+        <label asp-for="ConfirmationReference"></label>
+        <input asp-for="ConfirmationReference" placeholder="e.g. Confirmation email or ATS ID" />
+        <span asp-validation-for="ConfirmationReference" class="field-error"></span>
+    </div>
+
+    <div class="form-row">
+        <label asp-for="BlockingQuestion"></label>
+        <input asp-for="BlockingQuestion" placeholder="e.g. Question to answer before submitting" />
+        <span asp-validation-for="BlockingQuestion" class="field-error"></span>
+    </div>
 </div>
 
 <div class="form-row">
     <label asp-for="Notes"></label>
-    <textarea asp-for="Notes" rows="5"></textarea>
+    <textarea asp-for="Notes" rows="4"></textarea>
     <span asp-validation-for="Notes" class="field-error"></span>
 </div>
 
 <fieldset class="form-section">
-    <legend>Posting &amp; fit check</legend>
+    <legend>Captured posting text &amp; fit check</legend>
 
-    <div class="form-row">
-        <label asp-for="PostingUrl"></label>
-        <input asp-for="PostingUrl" />
-        <span asp-validation-for="PostingUrl" class="field-error"></span>
-    </div>
-
-    <div class="form-grid">
-        <div class="form-row">
-            <label asp-for="PayMin"></label>
-            <input asp-for="PayMin" type="number" min="0" step="1000" />
-            <span asp-validation-for="PayMin" class="field-error"></span>
+    @if (Model.Id > 0)
+    {
+        <div class="form-row button-row">
+            <button type="submit" class="button button-secondary button-small" id="edit-fetch-posting-btn"
+                    formaction="@Url.Action("FetchPostingForEdit", new { id = Model.Id })" formnovalidate>
+                Fetch posting text from URL
+            </button>
+            <span class="table-note">
+                Pulls the job description from the Posting URL above (never auto-saves — review below and click Save changes).
+            </span>
         </div>
-
-        <div class="form-row">
-            <label asp-for="PayMax"></label>
-            <input asp-for="PayMax" type="number" min="0" step="1000" />
-            <span asp-validation-for="PayMax" class="field-error"></span>
-        </div>
-    </div>
+    }
 
     <div class="form-row">
         <label asp-for="PostingText"></label>
-        <textarea asp-for="PostingText" rows="10"></textarea>
+        <textarea asp-for="PostingText" rows="10" placeholder="Paste the full posting text to run or update the deterministic fit check and include it in your AI packet…"></textarea>
         <span asp-validation-for="PostingText" class="field-error"></span>
-        <span class="table-note">Saving posting text re-runs the fit check against your search profile.</span>
+        <span class="table-note">Saving re-runs the fit check against your search profile.</span>
     </div>
 </fieldset>

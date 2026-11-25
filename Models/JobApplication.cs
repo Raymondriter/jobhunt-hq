@@ -86,6 +86,44 @@ public class JobApplication
     [Display(Name = "Fit reasons")]
     public string? FitReasons { get; set; }
 
+    // ---- M5: submission confirmation / blocker tracking & interview workspace ----
+
+    /// <summary>Optional confirmation ID or receipt note recorded after submitting an application.</summary>
+    [StringLength(200)]
+    [Display(Name = "Submission confirmation / reference")]
+    public string? ConfirmationReference { get; set; }
+
+    /// <summary>Optional unanswered knockout/custom question pausing a Saved application before submission.</summary>
+    [StringLength(1000)]
+    [Display(Name = "Open question / blocker before submitting")]
+    public string? BlockingQuestion { get; set; }
+
+    /// <summary>
+    /// Stable client/agent attempt identifier (e.g. from Muse or Gmail sync)
+    /// used for idempotent outcome handoffs so replaying a report updates the
+    /// same record instead of creating duplicates (<c>PRODUCT.md</c>).
+    /// </summary>
+    [StringLength(120)]
+    [Display(Name = "External attempt ID")]
+    public string? ExternalAttemptId { get; set; }
+
+    /// <summary>Origin label for centralized pipeline sync (e.g. "Muse", "Gmail Sync", "Web UI", "CSV").</summary>
+    [StringLength(60)]
+    [Display(Name = "Source")]
+    public string? SourceAgent { get; set; }
+
+    /// <summary>Tailored 60-second "Tell me about yourself" & "Why this role?" pitch for interviews.</summary>
+    [StringLength(2000)]
+    [Display(Name = "60-second elevator pitch")]
+    public string? ElevatorPitch { get; set; }
+
+    /// <summary>Company, product, team, and tech-stack research notes for interviews.</summary>
+    [StringLength(4000)]
+    [Display(Name = "Company & team research")]
+    public string? CompanyResearch { get; set; }
+
+    public List<InterviewRound> InterviewRounds { get; set; } = new();
+
     public DateTime CreatedUtc { get; set; }
 
     public DateTime UpdatedUtc { get; set; }

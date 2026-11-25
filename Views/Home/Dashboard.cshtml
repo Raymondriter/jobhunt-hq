@@ -7,10 +7,63 @@
 
 <div class="page-heading">
     <h1>Your dashboard</h1>
-    <a class="button" asp-controller="Applications" asp-action="Create">Add application</a>
+    <span class="heading-actions">
+        <a class="button" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
+        <a class="button button-secondary" asp-controller="Applications" asp-action="Create">Add application</a>
+        <a class="button button-secondary" asp-controller="Board" asp-action="Index">Open board</a>
+    </span>
 </div>
 
-<section class="dashboard-counts">
+@if (!Model.SetupComplete)
+{
+    <section class="onboarding-card" aria-labelledby="setup-heading">
+        <div class="onboarding-header">
+            <h2 id="setup-heading">Get set up for AI-assisted preparation</h2>
+            <p class="page-note">Complete these three steps once so every new posting is scored against your criteria and ready to export as an AI packet.</p>
+        </div>
+        <ol class="onboarding-steps">
+            <li class="@(Model.HasSearchProfile ? "step-done" : "step-pending")">
+                <span class="step-indicator" aria-hidden="true">@(Model.HasSearchProfile ? "✓" : "1")</span>
+                <div class="step-body">
+                    <strong>Create your search profile</strong>
+                    <p>Set your target roles, pay floor, must-haves, deal-breakers, skip list, and standing answers.</p>
+                </div>
+                <a class="button @(Model.HasSearchProfile ? "button-secondary" : "") button-small" asp-controller="Profile" asp-action="Edit">
+                    @(Model.HasSearchProfile ? "Review profile" : "Set up profile")
+                </a>
+            </li>
+            <li class="@(Model.HasResumeVersion ? "step-done" : "step-pending")">
+                <span class="step-indicator" aria-hidden="true">@(Model.HasResumeVersion ? "✓" : "2")</span>
+                <div class="step-body">
+                    <strong>Add a resume version @(Model.HasResumeVersion && !Model.HasUploadedResumePdf ? "(upload PDF optional)" : "")</strong>
+                    <p>Upload your resume PDF so JobHunt HQ can embed its extracted text directly inside your AI packets.</p>
+                </div>
+                <a class="button @(Model.HasResumeVersion ? "button-secondary" : "") button-small" asp-controller="Resumes" asp-action="Index">
+                    @(Model.HasResumeVersion ? "Manage resumes" : "Add resume")
+                </a>
+            </li>
+            <li class="@(Model.TotalApplications > 0 ? "step-done" : "step-pending")">
+                <span class="step-indicator" aria-hidden="true">@(Model.TotalApplications > 0 ? "✓" : "3")</span>
+                <div class="step-body">
+                    <strong>Capture a posting or import your tracker</strong>
+                    <p>Paste a job posting (or fetch it from a URL) for an instant fit check, or bulk-import a CSV.</p>
+                </div>
+                <span class="step-actions">
+                    <a class="button @(Model.TotalApplications > 0 ? "button-secondary" : "") button-small" asp-controller="Applications" asp-action="AddPosting">Add posting</a>
+                    <a class="button button-secondary button-small" asp-controller="Import" asp-action="Index">Import CSV</a>
+                    @if (Model.TotalApplications == 0)
+                    {
+                        <form asp-controller="Import" asp-action="LoadDemoSeed" method="post" style="display:inline">
+                            <button type="submit" class="button button-secondary button-small">Load 4 demo rows</button>
+                        </form>
+                    }
+                </span>
+            </li>
+        </ol>
+    </section>
+}
+
+<section class="dashboard-counts" aria-label="Application counts by stage">
     @foreach (var status in Enum.GetValues<ApplicationStatus>())
     {
         <a class="count-card count-card-@status.ToString().ToLowerInvariant()" asp-controller="Applications" asp-action="Index" asp-route-status="@status">
@@ -19,72 +72,211 @@
         </a>
     }
 </section>
-<p class="table-note">@Model.TotalApplications applications tracked in total.</p>
+
+<div class="metrics-strip">
+    <span><strong>@Model.TotalApplications</strong> total tracked</span>
+    <span class="metrics-sep" aria-hidden="true">&middot;</span>
+    <span><strong>@Model.ActiveApplicationsCount</strong> active in pipeline</span>
+    <span class="metrics-sep" aria-hidden="true">&middot;</span>
+    <span><strong>@Model.DueSoon.Count</strong> follow-up@(Model.DueSoon.Count == 1 ? "" : "s") due within 7 days</span>
+    @if (Model.ResponseRatePercent.HasValue)
+    {
+        <span class="metrics-sep" aria-hidden="true">&middot;</span>
+        <span><strong>@Model.ResponseRatePercent%</strong> response rate (@Model.RespondedCount of @Model.AppliedCount applied)</span>
+    }
+</div>
+
+@if (Model.UpcomingInterviews.Count > 0 || Model.ActiveInterviewApplications.Count > 0)
+{
+    <section class="dashboard-section interview-spotlight">
+        <div class="section-heading">
+            <h2>Active interviews &amp; upcoming calls</h2>
+            <a class="link-subtle" asp-controller="Interviews" asp-action="Index">Open Interview Command Center &rarr;</a>
+        </div>
+        @if (Model.UpcomingInterviews.Count > 0)
+        {
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Scheduled</th>
+                            <th>Company &amp; role</th>
+                            <th>Round</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.UpcomingInterviews)
+                        {
+                            var app = r.JobApplication!;
+                            var isToday = r.ScheduledLocal.HasValue && DateOnly.FromDateTime(r.ScheduledLocal.Value) == Model.Today;
+                            <tr>
+                                <td class="@(isToday ? "due-soon" : "")">
+                                    @(r.ScheduledLocal?.ToString("yyyy-MM-dd HH:mm") ?? "Time TBD") @r.TimeZoneLabel
+                                    @if (isToday)
+                                    {
+                                        <span>(today)</span>
+                                    }
+                                </td>
+                                <td><a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id"><strong>@app.Company</strong> — @app.RoleTitle</a></td>
+                                <td><span class="status-pill status-pill-interview">Round @r.RoundNumber</span> @r.RoundType</td>
+                                <td class="row-actions">
+                                    @if (!string.IsNullOrWhiteSpace(r.MeetingUrl) && (r.MeetingUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || r.MeetingUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        var linkLabel = r.ScheduledLocal.HasValue ? "Join call" : "Schedule / open link";
+                                        <a class="button button-small" href="@r.MeetingUrl" target="_blank" rel="noopener noreferrer">@linkLabel &nearr;</a>
+                                    }
+                                    <a class="button button-secondary button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true" asp-route-focusRoundId="@r.Id">Live cheat sheet</a>
+                                    <a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Prep</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="interview-apps-grid" style="margin-top: 0.75rem;">
+                @foreach (var app in Model.ActiveInterviewApplications)
+                {
+                    <div class="prepare-card" style="background: #fff;">
+                        <div class="ready-prompt-header">
+                            <div>
+                                <strong>@app.Company</strong>
+                                <span class="board-card-role">@app.RoleTitle</span>
+                            </div>
+                            <span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span>
+                        </div>
+                        <div class="button-row" style="margin-top: 0.55rem;">
+                            <a class="button button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id">Schedule round &amp; prep</a>
+                            <a class="button button-secondary button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true">Live cheat sheet</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
 
 <section class="dashboard-section">
-    <h2>Overdue and upcoming follow-ups</h2>
+    <div class="section-heading">
+        <h2>Overdue and upcoming follow-ups</h2>
+        @if (Model.DueSoon.Count > 0)
+        {
+            <a class="link-subtle" asp-controller="Applications" asp-action="Index" asp-route-dueFilter="due-soon">View all in Applications &rarr;</a>
+        }
+    </div>
     @if (Model.DueSoon.Count == 0)
     {
         <p class="empty-note">No overdue follow-ups or actions due in the next 7 days.</p>
     }
     else
     {
-        <table class="data-table">
-            <thead>
-                <tr><th>Company</th><th>Role</th><th>Next action</th><th>Due</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var app in Model.DueSoon)
-                {
-                    var overdue = app.NextActionDue < Model.Today;
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
-                        <td>@app.RoleTitle</td>
-                        <td>@app.NextAction</td>
-                        <td class="@(overdue ? "due-overdue" : "due-soon")">
-                            @app.NextActionDue?.ToString("yyyy-MM-dd")
-                            @if (overdue)
-                            {
-                                <span> (overdue)</span>
-                            }
-                            else if (app.NextActionDue == Model.Today)
-                            {
-                                <span> (today)</span>
-                            }
-                        </td>
+                        <th>Company</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Next action</th>
+                        <th>Due</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var app in Model.DueSoon)
+                    {
+                        var overdue = app.NextActionDue < Model.Today;
+                        <tr>
+                            <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id"><strong>@app.Company</strong></a></td>
+                            <td>@app.RoleTitle</td>
+                            <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
+                            <td>@app.NextAction</td>
+                            <td class="@(overdue ? "due-overdue" : "due-soon")">
+                                @app.NextActionDue?.ToString("yyyy-MM-dd")
+                                @if (overdue)
+                                {
+                                    <span> (overdue)</span>
+                                }
+                                else if (app.NextActionDue == Model.Today)
+                                {
+                                    <span> (today)</span>
+                                }
+                            </td>
+                            <td class="row-actions">
+                                <a asp-controller="Applications" asp-action="Prepare" asp-route-id="@app.Id">Prepare</a>
+                                <a asp-controller="Applications" asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+                                <form asp-controller="Applications" asp-action="CompleteFollowUp" asp-route-id="@app.Id" method="post">
+                                    <input type="hidden" name="returnUrl" value="@Url.Action("Dashboard", "Home")" />
+                                    <button type="submit" class="link-button" title="Mark this follow-up action done">Done</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 </section>
 
 <section class="dashboard-section">
-    <h2>Recently updated</h2>
+    <div class="section-heading">
+        <h2>Recently updated</h2>
+        @if (Model.RecentlyUpdated.Count > 0)
+        {
+            <a class="link-subtle" asp-controller="Applications" asp-action="Index">All applications &rarr;</a>
+        }
+    </div>
     @if (Model.RecentlyUpdated.Count == 0)
     {
         <p class="empty-note">
-            No applications yet. <a asp-controller="Applications" asp-action="Create">Add one</a>
+            No applications yet. <a asp-controller="Applications" asp-action="AddPosting">Add a posting</a>,
+            <a asp-controller="Applications" asp-action="Create">add an application</a>,
             or <a asp-controller="Import" asp-action="Index">import a CSV</a>.
         </p>
     }
     else
     {
-        <table class="data-table">
-            <thead>
-                <tr><th>Company</th><th>Role</th><th>Status</th><th>Updated</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var app in Model.RecentlyUpdated)
-                {
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
-                        <td>@app.RoleTitle</td>
-                        <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
-                        <td>@app.UpdatedUtc.ToString("yyyy-MM-dd")</td>
+                        <th>Company</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Fit</th>
+                        <th>Updated</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var app in Model.RecentlyUpdated)
+                    {
+                        <tr>
+                            <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id"><strong>@app.Company</strong></a></td>
+                            <td>@app.RoleTitle</td>
+                            <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
+                            <td>
+                                @if (app.FitVerdict is not null)
+                                {
+                                    <span class="status-pill fit-pill fit-@app.FitVerdict.ToLowerInvariant().Replace(" ", "-")">@app.FitVerdict</span>
+                                }
+                                else
+                                {
+                                    <text>—</text>
+                                }
+                            </td>
+                            <td>@app.UpdatedUtc.ToString("yyyy-MM-dd")</td>
+                            <td class="row-actions">
+                                <a asp-controller="Applications" asp-action="Prepare" asp-route-id="@app.Id">Prepare</a>
+                                <a asp-controller="Applications" asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 </section>

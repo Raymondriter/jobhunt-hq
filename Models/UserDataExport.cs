@@ -12,7 +12,7 @@ namespace JobHuntHQ.Models;
 /// </summary>
 public sealed class UserDataExport
 {
-    public string ExportVersion { get; init; } = "1";
+    public string ExportVersion { get; init; } = "2";
 
     public DateTime ExportedAtUtc { get; init; }
 
@@ -24,6 +24,8 @@ public sealed class UserDataExport
     public List<ApplicationExport> Applications { get; init; } = new();
 
     public List<ResumeVersionExport> ResumeVersions { get; init; } = new();
+
+    public List<StoryBankExport> StoryBank { get; init; } = new();
 }
 
 public sealed class SearchProfileExport
@@ -76,6 +78,13 @@ public sealed class ApplicationExport
     public int? PayMax { get; init; }
     public string? FitVerdict { get; init; }
     public string? FitReasons { get; init; }
+    public string? ConfirmationReference { get; init; }
+    public string? BlockingQuestion { get; init; }
+    public string? ExternalAttemptId { get; init; }
+    public string? SourceAgent { get; init; }
+    public string? ElevatorPitch { get; init; }
+    public string? CompanyResearch { get; init; }
+    public List<InterviewRoundExport> InterviewRounds { get; init; } = new();
     public DateTime CreatedUtc { get; init; }
     public DateTime UpdatedUtc { get; init; }
 
@@ -101,8 +110,81 @@ public sealed class ApplicationExport
         PayMax = application.PayMax,
         FitVerdict = application.FitVerdict,
         FitReasons = application.FitReasons,
+        ConfirmationReference = application.ConfirmationReference,
+        BlockingQuestion = application.BlockingQuestion,
+        ExternalAttemptId = application.ExternalAttemptId,
+        SourceAgent = application.SourceAgent,
+        ElevatorPitch = application.ElevatorPitch,
+        CompanyResearch = application.CompanyResearch,
+        InterviewRounds = application.InterviewRounds
+            .OrderBy(r => r.RoundNumber)
+            .ThenBy(r => r.Id)
+            .Select(InterviewRoundExport.FromEntity)
+            .ToList(),
         CreatedUtc = application.CreatedUtc,
         UpdatedUtc = application.UpdatedUtc
+    };
+}
+
+public sealed class InterviewRoundExport
+{
+    public int Id { get; init; }
+    public int RoundNumber { get; init; }
+    public string RoundType { get; init; } = string.Empty;
+    public DateTime? ScheduledLocal { get; init; }
+    public string? TimeZoneLabel { get; init; }
+    public int DurationMinutes { get; init; }
+    public string? MeetingUrl { get; init; }
+    public string? Interviewers { get; init; }
+    public string? PrepNotes { get; init; }
+    public string? QuestionsToAsk { get; init; }
+    public string? DebriefNotes { get; init; }
+    public bool Completed { get; init; }
+    public DateTime CreatedUtc { get; init; }
+    public DateTime UpdatedUtc { get; init; }
+
+    public static InterviewRoundExport FromEntity(InterviewRound round) => new()
+    {
+        Id = round.Id,
+        RoundNumber = round.RoundNumber,
+        RoundType = round.RoundType,
+        ScheduledLocal = round.ScheduledLocal,
+        TimeZoneLabel = round.TimeZoneLabel,
+        DurationMinutes = round.DurationMinutes,
+        MeetingUrl = round.MeetingUrl,
+        Interviewers = round.Interviewers,
+        PrepNotes = round.PrepNotes,
+        QuestionsToAsk = round.QuestionsToAsk,
+        DebriefNotes = round.DebriefNotes,
+        Completed = round.Completed,
+        CreatedUtc = round.CreatedUtc,
+        UpdatedUtc = round.UpdatedUtc
+    };
+}
+
+public sealed class StoryBankExport
+{
+    public int Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? Tags { get; init; }
+    public string? Situation { get; init; }
+    public string? Task { get; init; }
+    public string? Action { get; init; }
+    public string? Result { get; init; }
+    public DateTime CreatedUtc { get; init; }
+    public DateTime UpdatedUtc { get; init; }
+
+    public static StoryBankExport FromEntity(StoryBankItem item) => new()
+    {
+        Id = item.Id,
+        Title = item.Title,
+        Tags = item.Tags,
+        Situation = item.Situation,
+        Task = item.Task,
+        Action = item.Action,
+        Result = item.Result,
+        CreatedUtc = item.CreatedUtc,
+        UpdatedUtc = item.UpdatedUtc
     };
 }
 

@@ -12,6 +12,8 @@ public class ImportResultViewModel
 {
     public int ImportedCount { get; set; }
 
+    public int DuplicateCount { get; set; }
+
     public List<ImportSkippedRow> Skipped { get; set; } = new();
 
     /// <summary>Non-fatal notes (e.g. an unrecognized status that defaulted to Saved).</summary>

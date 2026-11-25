@@ -2,10 +2,13 @@
 
 @{
     ViewData["Title"] = "Resumes";
+    var usageCounts = ViewData["UsageCounts"] as IReadOnlyDictionary<int, int> ?? new Dictionary<int, int>();
+    var totalUsedBytes = ViewData["TotalUsedBytes"] as long? ?? 0L;
+    var maxTotalBytes = ViewData["MaxUserTotalBytes"] as long? ?? (50L * 1024 * 1024);
 
     string FormatSize(long bytes) => bytes >= 1024 * 1024
         ? $"{bytes / 1024d / 1024d:0.0} MB"
-        : $"{Math.Max(1, bytes / 1024)} KB";
+        : bytes == 0 ? "0 KB" : $"{Math.Max(1, bytes / 1024)} KB";
 }
 
 <div class="page-heading">
@@ -14,69 +17,73 @@
 </div>
 
 <p class="page-note">
-    Each resume version can carry its PDF file, stored privately in Azure Blob
-    Storage and served only through this app — upload it here, then record on
-    each application which version went where.
+    Each resume version can carry its PDF file (up to 10 MB per file; <strong>@FormatSize(totalUsedBytes) of @FormatSize(maxTotalBytes)</strong> used across your account), stored privately in Azure Blob
+    Storage and served only through this app.
 </p>
 
 @if (TempData["FileError"] is string fileError)
 {
-    <p class="file-error">@fileError</p>
+    <div class="flash-banner flash-error" role="alert">@fileError</div>
 }
 
 @if (Model.Count == 0)
 {
-    <p class="empty-note">No resume versions yet. <a asp-action="Create">Add one</a> so you can record which resume each application used.</p>
+    <p class="empty-note">No resume versions yet. <a asp-action="Create">Add one</a> so you can record which resume each application used and embed its text in your AI packets.</p>
 }
 else
 {
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Notes</th>
-                <th>Added</th>
-                <th>File</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var resume in Model)
-            {
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <td>@resume.Name</td>
-                    <td>@(resume.Notes ?? "—")</td>
-                    <td>@resume.CreatedUtc.ToString("yyyy-MM-dd")</td>
-                    <td>
-                        @if (resume.BlobName != null)
-                        {
-                            <a asp-action="Download" asp-route-id="@resume.Id">@(resume.FileName ?? "resume.pdf")</a>
-                            @if (resume.SizeBytes is long size)
-                            {
-                                <span class="file-meta">@FormatSize(size)</span>
-                            }
-                        }
-                        else
-                        {
-                            <span class="file-meta">No file uploaded</span>
-                        }
-                        <form class="file-upload-form" asp-action="Upload" asp-route-id="@resume.Id" method="post" enctype="multipart/form-data">
-                            <input type="file" name="file" accept=".pdf,application/pdf" />
-                            <button type="submit" class="button button-secondary">@(resume.BlobName != null ? "Replace" : "Upload")</button>
-                        </form>
-                    </td>
-                    <td class="row-actions">
-                        <a asp-action="Edit" asp-route-id="@resume.Id">Edit</a>
-                        @if (resume.BlobName != null)
-                        {
-                            <form asp-action="DeleteFile" asp-route-id="@resume.Id" method="post">
-                                <button type="submit" class="link-button">Remove file</button>
-                            </form>
-                        }
-                        <a asp-action="Delete" asp-route-id="@resume.Id">Delete</a>
-                    </td>
+                    <th>Name</th>
+                    <th>Notes</th>
+                    <th>Used on</th>
+                    <th>Added</th>
+                    <th>PDF file</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var resume in Model)
+                {
+                    var usedCount = usageCounts.TryGetValue(resume.Id, out var c) ? c : 0;
+                    <tr>
+                        <td><strong>@resume.Name</strong></td>
+                        <td>@(resume.Notes ?? "—")</td>
+                        <td>@(usedCount == 0 ? "0 applications" : $"{usedCount} application{(usedCount == 1 ? "" : "s")}")</td>
+                        <td>@resume.CreatedUtc.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (resume.BlobName != null)
+                            {
+                                <a asp-action="Download" asp-route-id="@resume.Id">@(resume.FileName ?? "resume.pdf")</a>
+                                @if (resume.SizeBytes is long size)
+                                {
+                                    <span class="file-meta">@FormatSize(size) &middot; Ready for AI packet extraction</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="file-meta">No file uploaded</span>
+                            }
+                            <form class="file-upload-form" asp-action="Upload" asp-route-id="@resume.Id" method="post" enctype="multipart/form-data">
+                                <input type="file" name="file" accept=".pdf,application/pdf" aria-label="Choose PDF file for @resume.Name" />
+                                <button type="submit" class="button button-secondary button-small">@(resume.BlobName != null ? "Replace" : "Upload")</button>
+                            </form>
+                        </td>
+                        <td class="row-actions">
+                            <a asp-action="Edit" asp-route-id="@resume.Id">Edit</a>
+                            @if (resume.BlobName != null)
+                            {
+                                <form asp-action="DeleteFile" asp-route-id="@resume.Id" method="post">
+                                    <button type="submit" class="link-button">Remove file</button>
+                                </form>
+                            }
+                            <a asp-action="Delete" asp-route-id="@resume.Id">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }

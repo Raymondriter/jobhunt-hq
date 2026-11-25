@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace JobHuntHQ.Models;
 
@@ -21,6 +22,15 @@ public class AddPostingViewModel
     [StringLength(1000)]
     [Display(Name = "Posting URL")]
     public string? PostingUrl { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Location (e.g. Remote, US)")]
+    public string? Location { get; set; }
+
+    [Display(Name = "Resume version to prepare with")]
+    public int? ResumeVersionId { get; set; }
+
+    public List<SelectListItem> ResumeOptions { get; set; } = new();
 
     [Display(Name = "Posting text (paste the full posting)")]
     public string? PostingText { get; set; }

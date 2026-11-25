@@ -67,3 +67,57 @@ public class ResumeStorageService : IResumeStorageService
             .DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken);
     }
 }
+
+/// <summary>
+/// Local filesystem implementation of <see cref="IResumeStorageService"/> used only in
+/// Development when <see cref="BlobStorageOptions.LocalFolder"/> is configured.
+/// </summary>
+public class LocalResumeStorageService : IResumeStorageService
+{
+    private readonly string _rootFolder;
+
+    public LocalResumeStorageService(string rootFolder)
+    {
+        _rootFolder = Path.GetFullPath(rootFolder);
+    }
+
+    private string ResolveSafePath(string blobName)
+    {
+        var normalized = blobName.Replace('\\', '/').TrimStart('/');
+        var fullPath = Path.GetFullPath(Path.Combine(_rootFolder, normalized));
+        if (!fullPath.StartsWith(_rootFolder, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Invalid blob path.");
+        }
+        return fullPath;
+    }
+
+    public async Task UploadAsync(string blobName, Stream content, string contentType, CancellationToken cancellationToken = default)
+    {
+        var path = ResolveSafePath(blobName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        await content.CopyToAsync(fileStream, cancellationToken);
+    }
+
+    public Task<Stream?> DownloadAsync(string blobName, CancellationToken cancellationToken = default)
+    {
+        var path = ResolveSafePath(blobName);
+        if (!File.Exists(path))
+        {
+            return Task.FromResult<Stream?>(null);
+        }
+        Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return Task.FromResult<Stream?>(stream);
+    }
+
+    public Task DeleteAsync(string blobName, CancellationToken cancellationToken = default)
+    {
+        var path = ResolveSafePath(blobName);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+        return Task.CompletedTask;
+    }
+}

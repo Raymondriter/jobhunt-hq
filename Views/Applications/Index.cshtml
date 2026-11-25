@@ -1,9 +1,19 @@
 @model JobHuntHQ.Models.ApplicationsIndexViewModel
 @using JobHuntHQ.Models
+@using JobHuntHQ.Services
 
 @{
     ViewData["Title"] = "Applications";
+    ViewData["WideContainer"] = true;
     var dueSoonLimit = Model.Today.AddDays(Model.DueSoonDays);
+    var fitVerdicts = new[]
+    {
+        FitCheckService.VerdictStrongFit,
+        FitCheckService.VerdictPossible,
+        FitCheckService.VerdictPoorFit,
+        FitCheckService.VerdictBlocked,
+        FitCheckService.VerdictNotChecked
+    };
 }
 
 <div class="page-heading">
@@ -11,94 +21,188 @@
     <span class="heading-actions">
         <a class="button" asp-action="AddPosting">Add posting</a>
         <a class="button button-secondary" asp-action="Create">Add application</a>
+        <a class="button button-secondary" asp-controller="Board" asp-action="Index">Board view</a>
     </span>
 </div>
 
-<form method="get" class="filter-bar">
-    <label for="status">Status</label>
-    <select id="status" name="status">
-        <option value="">All statuses</option>
-        @foreach (var status in Enum.GetValues<ApplicationStatus>())
-        {
-            if (Model.StatusFilter == status)
+<form method="get" class="filter-bar" id="applications-filter-form">
+    <div class="filter-group filter-search">
+        <label for="q" class="visually-hidden">Search company, role, location, or notes</label>
+        <input type="search" id="q" name="q" value="@Model.SearchQuery" placeholder="Search company, role, location, notes…" />
+    </div>
+
+    <div class="filter-group">
+        <label for="status">Status</label>
+        <select id="status" name="status" data-auto-submit>
+            <option value="">All statuses</option>
+            @foreach (var status in Enum.GetValues<ApplicationStatus>())
             {
-                <option value="@status" selected>@status</option>
+                <option value="@status" selected="@(Model.StatusFilter == status)">@status</option>
             }
-            else
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="fitFilter">Fit</label>
+        <select id="fitFilter" name="fitFilter" data-auto-submit>
+            <option value="">All verdicts</option>
+            @foreach (var verdict in fitVerdicts)
             {
-                <option value="@status">@status</option>
+                <option value="@verdict" selected="@(string.Equals(Model.FitFilter, verdict, StringComparison.OrdinalIgnoreCase))">@verdict</option>
             }
-        }
-    </select>
-    <button type="submit" class="button button-secondary">Filter</button>
-    @if (Model.StatusFilter.HasValue)
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="dueFilter">Follow-ups</label>
+        <select id="dueFilter" name="dueFilter" data-auto-submit>
+            <option value="">All follow-ups</option>
+            <option value="overdue" selected="@(string.Equals(Model.DueFilter, "overdue", StringComparison.OrdinalIgnoreCase))">Overdue only</option>
+            <option value="due-soon" selected="@(string.Equals(Model.DueFilter, "due-soon", StringComparison.OrdinalIgnoreCase))">Due within 7 days</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="sortBy">Sort</label>
+        <select id="sortBy" name="sortBy" data-auto-submit>
+            <option value="updated" selected="@(Model.SortBy == "updated")">Recently updated</option>
+            <option value="due" selected="@(Model.SortBy == "due")">Follow-up due date</option>
+            <option value="applied" selected="@(Model.SortBy == "applied")">Date applied</option>
+            <option value="company" selected="@(Model.SortBy == "company")">Company (A–Z)</option>
+        </select>
+    </div>
+
+    <button type="submit" class="button button-secondary">Search</button>
+    @if (Model.HasActiveFilters)
     {
-        <a asp-action="Index">Clear</a>
+        <a class="filter-clear" asp-action="Index">Clear filters</a>
     }
 </form>
 
+<p class="table-note">
+    @if (Model.HasActiveFilters)
+    {
+        <text>Showing <strong>@Model.Applications.Count</strong> of <strong>@Model.TotalCount</strong> applications.</text>
+    }
+    else
+    {
+        <text><strong>@Model.TotalCount</strong> application@(Model.TotalCount == 1 ? "" : "s") tracked.</text>
+    }
+</p>
+
 @if (Model.Applications.Count == 0)
 {
-    <p class="empty-note">
-        Nothing here yet. <a asp-action="Create">Add your first application</a>
-        or <a asp-controller="Import" asp-action="Index">import a CSV</a>.
-    </p>
+    @if (Model.HasActiveFilters)
+    {
+        <p class="empty-note">
+            No applications match those filters. <a asp-action="Index">Clear all filters</a> to see your full pipeline.
+        </p>
+    }
+    else
+    {
+        <p class="empty-note">
+            Nothing here yet. <a asp-action="AddPosting">Add a posting</a>,
+            <a asp-action="Create">add your first application</a>,
+            or <a asp-controller="Import" asp-action="Index">import a CSV</a>.
+        </p>
+    }
 }
 else
 {
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Company</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Fit</th>
-                <th>Applied</th>
-                <th>Next action</th>
-                <th>Due</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var app in Model.Applications)
-            {
-                var dueClass = "";
-                if (app.NextActionDue.HasValue && !app.Status.IsClosed())
-                {
-                    if (app.NextActionDue.Value < Model.Today)
-                    {
-                        dueClass = "due-overdue";
-                    }
-                    else if (app.NextActionDue.Value <= dueSoonLimit)
-                    {
-                        dueClass = "due-soon";
-                    }
-                }
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <td><a asp-action="Details" asp-route-id="@app.Id">@app.Company</a></td>
-                    <td>@app.RoleTitle</td>
-                    <td><span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span></td>
-                    <td>
-                        @if (app.FitVerdict is not null)
-                        {
-                            <span class="status-pill fit-pill fit-@app.FitVerdict.ToLowerInvariant().Replace(" ", "-")">@app.FitVerdict</span>
-                        }
-                        else
-                        {
-                            <text>—</text>
-                        }
-                    </td>
-                    <td>@(app.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</td>
-                    <td>@(app.NextAction ?? "—")</td>
-                    <td class="@dueClass">@(app.NextActionDue?.ToString("yyyy-MM-dd") ?? "—")</td>
-                    <td class="row-actions">
-                        <a asp-action="Prepare" asp-route-id="@app.Id">Prepare</a>
-                        <a asp-action="Edit" asp-route-id="@app.Id">Edit</a>
-                        <a asp-action="Delete" asp-route-id="@app.Id">Delete</a>
-                    </td>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Fit</th>
+                    <th>Applied</th>
+                    <th>Next action</th>
+                    <th>Due</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var app in Model.Applications)
+                {
+                    var dueClass = "";
+                    if (app.NextActionDue.HasValue && !app.Status.IsClosed())
+                    {
+                        if (app.NextActionDue.Value < Model.Today)
+                        {
+                            dueClass = "due-overdue";
+                        }
+                        else if (app.NextActionDue.Value <= dueSoonLimit)
+                        {
+                            dueClass = "due-soon";
+                        }
+                    }
+                    <tr>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@app.Id"><strong>@app.Company</strong></a>
+                            @if (!string.IsNullOrWhiteSpace(app.Location))
+                            {
+                                <span class="file-meta">@app.Location</span>
+                            }
+                        </td>
+                        <td>@app.RoleTitle</td>
+                        <td>
+                            <span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span>
+                            @if (!string.IsNullOrWhiteSpace(app.ConfirmationReference))
+                            {
+                                <span class="file-meta" title="@app.ConfirmationReference">✓ Confirmed</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(app.BlockingQuestion) && app.Status == ApplicationStatus.Saved)
+                            {
+                                <span class="file-meta due-soon" title="@app.BlockingQuestion">Needs answer</span>
+                            }
+                        </td>
+                        <td>
+                            @if (app.FitVerdict is not null)
+                            {
+                                <span class="status-pill fit-pill fit-@app.FitVerdict.ToLowerInvariant().Replace(" ", "-")">@app.FitVerdict</span>
+                            }
+                            else
+                            {
+                                <text>—</text>
+                            }
+                        </td>
+                        <td>@(app.DateApplied?.ToString("yyyy-MM-dd") ?? "—")</td>
+                        <td>@(app.NextAction ?? "—")</td>
+                        <td class="@dueClass">
+                            @(app.NextActionDue?.ToString("yyyy-MM-dd") ?? "—")
+                            @if (!string.IsNullOrWhiteSpace(app.NextAction) || app.NextActionDue.HasValue)
+                            {
+                                <form asp-action="CompleteFollowUp" asp-route-id="@app.Id" method="post" class="inline-done-form">
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="link-button link-done" title="Mark follow-up done">✓ Done</button>
+                                </form>
+                            }
+                        </td>
+                        <td class="row-actions">
+                            @if (app.Status == ApplicationStatus.Screening || app.Status == ApplicationStatus.Interview || app.Status == ApplicationStatus.Offer)
+                            {
+                                <a asp-action="Interview" asp-route-id="@app.Id"><strong>Interview</strong></a>
+                            }
+                            <a asp-action="Prepare" asp-route-id="@app.Id">Prepare</a>
+                            <a asp-action="Edit" asp-route-id="@app.Id">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@app.Id">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
     <p class="table-note"><span class="due-overdue">Red</span> = overdue next action, <span class="due-soon">amber</span> = due within @Model.DueSoonDays days (open applications only).</p>
+}
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('#applications-filter-form [data-auto-submit]').forEach(function (select) {
+            select.addEventListener('change', function () {
+                select.form.submit();
+            });
+        });
+    </script>
 }

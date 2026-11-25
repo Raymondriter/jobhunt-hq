@@ -7,69 +7,99 @@
 <h1>Add posting</h1>
 <p class="page-note">
     Paste a posting — or fetch it from its URL — and JobHunt HQ saves it as a
-    Saved application and checks it against
-    <a asp-controller="Profile" asp-action="Index">your search profile</a> right away.
+    Saved application, runs the fit check against
+    <a asp-controller="Profile" asp-action="Index">your search profile</a>, and opens your
+    <strong>Prepare &amp; AI packet</strong> workspace immediately.
 </p>
 @if (!string.IsNullOrWhiteSpace(Model.FetchNote))
 {
-    <p class="fetch-note">@Model.FetchNote</p>
+    <p class="fetch-note" role="status">@Model.FetchNote</p>
 }
 
-<form asp-action="AddPosting" method="post" class="edit-form">
+<form asp-action="AddPosting" method="post" class="edit-form" id="add-posting-form">
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
     <div class="form-row">
-        <label asp-for="Company"></label>
-        <input asp-for="Company" />
-        <span asp-validation-for="Company" class="field-error"></span>
-    </div>
-
-    <div class="form-row">
-        <label asp-for="JobTitle"></label>
-        <input asp-for="JobTitle" />
-        <span asp-validation-for="JobTitle" class="field-error"></span>
-    </div>
-
-    <div class="form-row">
         <label asp-for="PostingUrl"></label>
-        <input asp-for="PostingUrl" />
+        <input asp-for="PostingUrl" placeholder="https://boards.greenhouse.io/…" />
         <span asp-validation-for="PostingUrl" class="field-error"></span>
     </div>
 
     <div class="form-row button-row">
-        <button type="submit" class="button button-secondary"
+        <button type="submit" class="button button-secondary" id="fetch-posting-btn"
                 formaction="@Url.Action("FetchPosting")" formnovalidate>
             Fetch from URL
         </button>
         <span class="table-note">
-            Fills in the posting text from the page so you don't have to paste
+            Fills in the posting text (and role title if blank) from the page so you don't have to paste
             it. Review and edit before saving — fetching never saves anything.
-            Some sites block fetching; pasting always works.
         </span>
     </div>
 
     <div class="form-grid">
         <div class="form-row">
+            <label asp-for="Company"></label>
+            <input asp-for="Company" placeholder="e.g. Acme Corp" />
+            <span asp-validation-for="Company" class="field-error"></span>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="JobTitle"></label>
+            <input asp-for="JobTitle" placeholder="e.g. Senior .NET Engineer" />
+            <span asp-validation-for="JobTitle" class="field-error"></span>
+        </div>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-row">
+            <label asp-for="Location"></label>
+            <input asp-for="Location" placeholder="e.g. Remote (US)" />
+            <span asp-validation-for="Location" class="field-error"></span>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="ResumeVersionId"></label>
+            <select asp-for="ResumeVersionId" asp-items="Model.ResumeOptions">
+                <option value="">— Latest resume version (default) —</option>
+            </select>
+            <span asp-validation-for="ResumeVersionId" class="field-error"></span>
+        </div>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-row">
             <label asp-for="PayMin"></label>
-            <input asp-for="PayMin" type="number" min="0" step="1000" />
+            <input asp-for="PayMin" type="number" min="0" step="1000" placeholder="e.g. 130000" />
             <span asp-validation-for="PayMin" class="field-error"></span>
         </div>
 
         <div class="form-row">
             <label asp-for="PayMax"></label>
-            <input asp-for="PayMax" type="number" min="0" step="1000" />
+            <input asp-for="PayMax" type="number" min="0" step="1000" placeholder="e.g. 160000" />
             <span asp-validation-for="PayMax" class="field-error"></span>
         </div>
     </div>
 
     <div class="form-row">
         <label asp-for="PostingText"></label>
-        <textarea asp-for="PostingText" rows="14"></textarea>
+        <textarea asp-for="PostingText" rows="14" placeholder="Paste the full job description here so JobHunt HQ can check your must-haves, deal-breakers, and build your AI packet…"></textarea>
         <span asp-validation-for="PostingText" class="field-error"></span>
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="button">Save &amp; check fit</button>
+        <button type="submit" class="button">Save, check fit &amp; prepare</button>
         <a asp-action="Index">Cancel</a>
     </div>
 </form>
+
+@section Scripts {
+    <script>
+        document.getElementById('fetch-posting-btn')?.addEventListener('click', function (e) {
+            var btn = e.currentTarget;
+            setTimeout(function () {
+                btn.textContent = 'Fetching posting…';
+                btn.disabled = true;
+            }, 10);
+        });
+    </script>
+}

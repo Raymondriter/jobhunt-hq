@@ -1,22 +1,70 @@
 @model JobHuntHQ.Models.JobApplication
+@using JobHuntHQ.Models
+@using JobHuntHQ.Services
 
 @{
     ViewData["Title"] = $"{Model.Company} — {Model.RoleTitle}";
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var dueClass = "";
+    if (Model.NextActionDue.HasValue && !Model.Status.IsClosed())
+    {
+        if (Model.NextActionDue.Value < today)
+        {
+            dueClass = "due-overdue";
+        }
+        else if (Model.NextActionDue.Value <= today.AddDays(7))
+        {
+            dueClass = "due-soon";
+        }
+    }
+    var atsKey = AtsInfo.DetectKey(Model.PostingUrl ?? Model.Url);
+    var atsName = AtsInfo.DisplayName(atsKey);
 }
 
 <div class="page-heading">
     <h1>@Model.Company</h1>
     <span class="heading-actions">
-        <a class="button" asp-action="Prepare" asp-route-id="@Model.Id">Prepare</a>
+        @if (Model.Status == ApplicationStatus.Screening || Model.Status == ApplicationStatus.Interview || Model.Status == ApplicationStatus.Offer || Model.InterviewRounds.Count > 0)
+        {
+            <a class="button" asp-action="Interview" asp-route-id="@Model.Id">Interview prep</a>
+            <a class="button button-secondary" asp-action="Interview" asp-route-id="@Model.Id" asp-route-live="true">Live cheat sheet</a>
+            <a class="button button-secondary" asp-action="Prepare" asp-route-id="@Model.Id">App packet</a>
+        }
+        else
+        {
+            <a class="button" asp-action="Prepare" asp-route-id="@Model.Id">Prepare &amp; AI packet</a>
+            <form asp-action="PromoteToInterview" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                <button type="submit" class="button button-secondary">Got an interview! &rarr;</button>
+            </form>
+        }
         <a class="button button-secondary" asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
         <a class="button button-danger" asp-action="Delete" asp-route-id="@Model.Id">Delete</a>
     </span>
 </div>
 <p class="detail-role">@Model.RoleTitle</p>
 
+@if (!string.IsNullOrWhiteSpace(Model.BlockingQuestion))
+{
+    <div class="flash-banner" style="background: #fff9e6; border-color: #f0d58c; border-left-color: #e0a800;">
+        <strong>Needs your answer before submitting:</strong> @Model.BlockingQuestion
+    </div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.ConfirmationReference))
+{
+    <div class="flash-banner flash-success">
+        <strong>Submission confirmed:</strong> @Model.ConfirmationReference
+    </div>
+}
+
 <dl class="detail-list">
     <dt>Status</dt>
-    <dd><span class="status-pill status-pill-@Model.Status.ToString().ToLowerInvariant()">@Model.Status</span></dd>
+    <dd>
+        <span class="status-pill status-pill-@Model.Status.ToString().ToLowerInvariant()">@Model.Status</span>
+        @if (!string.IsNullOrWhiteSpace(Model.SourceAgent))
+        {
+            <span class="ats-badge" style="margin-left: 0.4rem;">Synced via <strong>@Model.SourceAgent</strong></span>
+        }
+    </dd>
 
     @if (!string.IsNullOrEmpty(Model.Location))
     {
@@ -24,16 +72,17 @@
         <dd>@Model.Location</dd>
     }
 
-    @if (!string.IsNullOrEmpty(Model.Url))
+    @if (!string.IsNullOrEmpty(Model.PostingUrl ?? Model.Url))
     {
+        var link = Model.PostingUrl ?? Model.Url;
         <dt>Posting</dt>
-        <dd><a href="@Model.Url" target="_blank" rel="noopener noreferrer">@Model.Url</a></dd>
-    }
-
-    @if (!string.IsNullOrEmpty(Model.PostingUrl) && Model.PostingUrl != Model.Url)
-    {
-        <dt>Posting URL</dt>
-        <dd><a href="@Model.PostingUrl" target="_blank" rel="noopener noreferrer">@Model.PostingUrl</a></dd>
+        <dd>
+            <a href="@link" target="_blank" rel="noopener noreferrer">@link</a>
+            @if (atsKey != AtsInfo.UnknownKey)
+            {
+                <span class="ats-badge">ATS: <strong>@atsName</strong></span>
+            }
+        </dd>
     }
 
     @if (Model.PayMin.HasValue || Model.PayMax.HasValue)
@@ -83,32 +132,39 @@
 
     @if (Model.SalaryMin.HasValue || Model.SalaryMax.HasValue)
     {
-        <dt>Salary range</dt>
-        <dd>
-            @if (Model.SalaryMin.HasValue && Model.SalaryMax.HasValue)
-            {
-                <text>$@Model.SalaryMin.Value.ToString("N0") – $@Model.SalaryMax.Value.ToString("N0")</text>
-            }
-            else if (Model.SalaryMin.HasValue)
-            {
-                <text>From $@Model.SalaryMin.Value.ToString("N0")</text>
-            }
-            else
-            {
-                <text>Up to $@Model.SalaryMax!.Value.ToString("N0")</text>
-            }
-        </dd>
+        if (Model.SalaryMin != Model.PayMin || Model.SalaryMax != Model.PayMax)
+        {
+            <dt>Salary range</dt>
+            <dd>
+                @if (Model.SalaryMin.HasValue && Model.SalaryMax.HasValue)
+                {
+                    <text>$@Model.SalaryMin.Value.ToString("N0") – $@Model.SalaryMax.Value.ToString("N0")</text>
+                }
+                else if (Model.SalaryMin.HasValue)
+                {
+                    <text>From $@Model.SalaryMin.Value.ToString("N0")</text>
+                }
+                else
+                {
+                    <text>Up to $@Model.SalaryMax!.Value.ToString("N0")</text>
+                }
+            </dd>
+        }
     }
 
     @if (!string.IsNullOrEmpty(Model.NextAction))
     {
         <dt>Next action</dt>
-        <dd>
+        <dd class="@dueClass">
             @Model.NextAction
             @if (Model.NextActionDue.HasValue)
             {
                 <text> (due @Model.NextActionDue.Value.ToString("yyyy-MM-dd"))</text>
             }
+            <form asp-action="CompleteFollowUp" asp-route-id="@Model.Id" method="post" class="inline-done-form">
+                <input type="hidden" name="returnUrl" value="@Url.Action("Details", new { id = Model.Id })" />
+                <button type="submit" class="link-button link-done">✓ Mark done</button>
+            </form>
         </dd>
     }
 
@@ -122,6 +178,22 @@
     {
         <dt>Notes</dt>
         <dd class="notes-block">@Model.Notes</dd>
+    }
+
+    @if (Model.InterviewRounds.Count > 0)
+    {
+        <dt>Interview rounds</dt>
+        <dd>
+            @foreach (var r in Model.InterviewRounds.OrderBy(x => x.RoundNumber))
+            {
+                <div>
+                    <strong>Round @r.RoundNumber (@r.RoundType):</strong>
+                    @(r.ScheduledLocal?.ToString("yyyy-MM-dd HH:mm") ?? "Time TBD") @r.TimeZoneLabel
+                    &middot; @(r.Completed ? "Completed" : "Upcoming")
+                </div>
+            }
+            <a asp-action="Interview" asp-route-id="@Model.Id">Open interview workspace &rarr;</a>
+        </dd>
     }
 
     <dt>Last updated</dt>

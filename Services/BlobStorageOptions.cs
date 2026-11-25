@@ -12,4 +12,10 @@ public class BlobStorageOptions
     public string ServiceUri { get; set; } = string.Empty;
 
     public string ContainerName { get; set; } = "resumes";
+
+    /// <summary>
+    /// Optional local directory path for Development environments without Azure Blob access.
+    /// In production this is null/empty and Azure Blob Storage is used exclusively.
+    /// </summary>
+    public string? LocalFolder { get; set; }
 }

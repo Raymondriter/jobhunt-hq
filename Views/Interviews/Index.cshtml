@@ -1,0 +1,285 @@
+@model JobHuntHQ.Models.InterviewsHubViewModel
+@using JobHuntHQ.Models
+@using JobHuntHQ.Services
+
+@{
+    ViewData["Title"] = "Interviews";
+    ViewData["WideContainer"] = true;
+    var editStory = Model.EditingStory;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Interview command center</h1>
+        <p class="page-note">Prepare for upcoming calls, launch your live second-monitor cheat sheet, and manage your reusable STAR Story Bank — grounded strictly in your real experience.</p>
+    </div>
+    <span class="heading-actions">
+        <a class="button button-secondary" asp-controller="Applications" asp-action="Index" asp-route-status="Interview">View Interview apps</a>
+        <a class="button button-secondary" asp-controller="Board" asp-action="Index">Pipeline board</a>
+    </span>
+</div>
+
+<section class="dashboard-section">
+    <h2>Upcoming interview rounds</h2>
+    @if (Model.UpcomingRounds.Count == 0)
+    {
+        <p class="empty-note">
+            No upcoming rounds scheduled yet. Open any application below (or click <strong>Got an interview!</strong> on an application's Details page) to schedule Round 1.
+        </p>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Company &amp; role</th>
+                        <th>Round</th>
+                        <th>Interviewer(s)</th>
+                        <th>Call link</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.UpcomingRounds)
+                    {
+                        var app = r.JobApplication!;
+                        var isToday = r.ScheduledLocal.HasValue && DateOnly.FromDateTime(r.ScheduledLocal.Value) == Model.Today;
+                        <tr>
+                            <td class="@(isToday ? "due-soon" : "")">
+                                @if (r.ScheduledLocal.HasValue)
+                                {
+                                    <strong>@r.ScheduledLocal.Value.ToString("yyyy-MM-dd HH:mm")</strong>
+                                    @if (!string.IsNullOrWhiteSpace(r.TimeZoneLabel))
+                                    {
+                                        <span class="file-meta">@r.TimeZoneLabel (@r.DurationMinutes min)@(isToday ? " · TODAY" : "")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="file-meta">@r.DurationMinutes min@(isToday ? " · TODAY" : "")</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="file-meta">Time TBD (@r.DurationMinutes min)</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id"><strong>@app.Company</strong></a>
+                                <span class="file-meta">@app.RoleTitle</span>
+                            </td>
+                            <td>
+                                <span class="status-pill status-pill-interview">Round @r.RoundNumber</span>
+                                <span>@r.RoundType</span>
+                            </td>
+                            <td>@(r.Interviewers ?? "—")</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(r.MeetingUrl) && (r.MeetingUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || r.MeetingUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    var linkLabel = r.ScheduledLocal.HasValue ? "Join call" : "Schedule / open link";
+                                    <a class="button button-small" href="@r.MeetingUrl" target="_blank" rel="noopener noreferrer">@linkLabel &nearr;</a>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(r.MeetingUrl))
+                                {
+                                    <span>@r.MeetingUrl</span>
+                                }
+                                else
+                                {
+                                    <text>—</text>
+                                }
+                            </td>
+                            <td class="row-actions">
+                                <a class="button button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true" asp-route-focusRoundId="@r.Id">Live cheat sheet</a>
+                                <a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Prep &amp; AI packet</a>
+                                <a asp-controller="Applications" asp-action="DownloadInterviewIcs" asp-route-id="@app.Id" asp-route-roundId="@r.Id" title="Download calendar invite">.ics</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="dashboard-section">
+    <h2>Active Screening, Interview &amp; Offer pipeline</h2>
+    @if (Model.ActiveInterviewApplications.Count == 0)
+    {
+        <p class="empty-note">
+            No applications are in Screening or Interview yet. When an employer reaches out, open that application in <a asp-controller="Applications" asp-action="Index">Applications</a> and click <strong>Got an interview!</strong> to pull it into this hub.
+        </p>
+    }
+    else
+    {
+        <div class="interview-apps-grid">
+            @foreach (var app in Model.ActiveInterviewApplications)
+            {
+                var openRounds = app.InterviewRounds.Count(x => !x.Completed);
+                var doneRounds = app.InterviewRounds.Count(x => x.Completed);
+                <div class="prepare-card">
+                    <div class="ready-prompt-header">
+                        <div>
+                            <strong>@app.Company</strong>
+                            <span class="board-card-role">@app.RoleTitle</span>
+                        </div>
+                        <span class="status-pill status-pill-@app.Status.ToString().ToLowerInvariant()">@app.Status</span>
+                    </div>
+                    <p class="file-meta">
+                        @openRounds upcoming round@(openRounds == 1 ? "" : "s") &middot; @doneRounds completed
+                        @if (string.IsNullOrWhiteSpace(app.PostingText))
+                        {
+                            <text> &middot; <a asp-controller="Applications" asp-action="Edit" asp-route-id="@app.Id">Add/fetch posting text</a></text>
+                        }
+                    </p>
+                    <div class="button-row" style="margin-top: 0.65rem;">
+                        <a class="button button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id">Open interview prep</a>
+                        <a class="button button-secondary button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true">Live cheat sheet</a>
+                        <a class="button button-secondary button-small" asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id">Details</a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+<section class="dashboard-section" id="story-bank">
+    <div class="section-heading">
+        <h2>Reusable STAR Story Bank (@Model.Stories.Count)</h2>
+    </div>
+    <p class="page-note">
+        Write your real engineering &amp; career stories once using <strong>Situation, Task, Action, Result</strong> and tag the skills they demonstrate. JobHunt HQ automatically highlights matching stories on every interview and embeds them into your Interview AI Packets.
+    </p>
+
+    <details class="packet-preview-details" @(editStory is not null || Model.Stories.Count == 0 ? "open" : "")>
+        <summary><strong>@(editStory is not null ? $"Editing story: {editStory.Title}" : "+ Add a real STAR story to your bank")</strong></summary>
+        <form asp-action="SaveStory" method="post" class="prepare-workspace-box workspace-form">
+            @if (editStory is not null)
+            {
+                <input type="hidden" name="id" value="@editStory.Id" />
+            }
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="story-title">Story headline (required)</label>
+                    <input type="text" id="story-title" name="title" value="@editStory?.Title" required maxlength="200" placeholder="e.g. Migrated cloud app to passwordless Managed Identity + Azure SQL" />
+                </div>
+                <div class="form-row">
+                    <label for="story-tags">Skills &amp; themes (comma-separated)</label>
+                    <input type="text" id="story-tags" name="tags" value="@editStory?.Tags" maxlength="500" placeholder="e.g. C#, .NET, Azure, Security, Ownership, Architecture" />
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="story-situation">Situation (context &amp; stakes)</label>
+                    <textarea id="story-situation" name="situation" rows="3" placeholder="What system, team, or constraint were you working within?">@editStory?.Situation</textarea>
+                </div>
+                <div class="form-row">
+                    <label for="story-task">Task (the specific problem to solve)</label>
+                    <textarea id="story-task" name="task" rows="3" placeholder="What was your concrete goal or responsibility?">@editStory?.Task</textarea>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="story-action">Action (what YOU built, decided, or debugged)</label>
+                    <textarea id="story-action" name="action" rows="3" placeholder="Key technical decisions, trade-offs, and execution steps…">@editStory?.Action</textarea>
+                </div>
+                <div class="form-row">
+                    <label for="story-result">Result (impact, metrics, reliability/cost outcome)</label>
+                    <textarea id="story-result" name="result" rows="3" placeholder="Measurable outcome, e.g. zero stored secrets, $0/mo budget maintained…">@editStory?.Result</textarea>
+                </div>
+            </div>
+            <div class="button-row">
+                <button type="submit" class="button">@(editStory is not null ? "Save story changes" : "Add to Story Bank")</button>
+                @if (editStory is not null)
+                {
+                    <a class="button button-secondary" asp-action="Index">Cancel edit</a>
+                }
+            </div>
+        </form>
+    </details>
+
+    @if (Model.Stories.Count > 0)
+    {
+        <div class="story-bank-grid">
+            @foreach (var story in Model.Stories)
+            {
+                var tags = FitCheckService.ParseList(story.Tags);
+                <article class="story-card">
+                    <div class="ready-prompt-header">
+                        <strong>@story.Title</strong>
+                        <span class="row-actions">
+                            <a asp-action="Index" asp-route-editStoryId="@story.Id">Edit</a>
+                            <form asp-action="DeleteStory" asp-route-id="@story.Id" method="post">
+                                <button type="submit" class="link-button">Delete</button>
+                            </form>
+                        </span>
+                    </div>
+                    @if (tags.Count > 0)
+                    {
+                        <div class="keyword-chips" style="margin-bottom: 0.55rem;">
+                            @foreach (var t in tags)
+                            {
+                                <span class="keyword-chip">@t</span>
+                            }
+                        </div>
+                    }
+                    <dl class="story-dl">
+                        @if (!string.IsNullOrWhiteSpace(story.Situation))
+                        {
+                            <dt>S</dt><dd>@story.Situation</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(story.Task))
+                        {
+                            <dt>T</dt><dd>@story.Task</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(story.Action))
+                        {
+                            <dt>A</dt><dd>@story.Action</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(story.Result))
+                        {
+                            <dt>R</dt><dd>@story.Result</dd>
+                        }
+                    </dl>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@if (Model.CompletedRounds.Count > 0)
+{
+    <section class="dashboard-section">
+        <details class="packet-preview-details">
+            <summary><strong>Completed interview rounds &amp; debriefs (@Model.CompletedRounds.Count)</strong></summary>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Company &amp; role</th>
+                            <th>Round</th>
+                            <th>Debrief summary</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.CompletedRounds)
+                        {
+                            var app = r.JobApplication!;
+                            <tr>
+                                <td>@(r.ScheduledLocal?.ToString("yyyy-MM-dd") ?? r.UpdatedUtc.ToString("yyyy-MM-dd"))</td>
+                                <td><strong>@app.Company</strong> — @app.RoleTitle</td>
+                                <td>Round @r.RoundNumber: @r.RoundType</td>
+                                <td>@(string.IsNullOrWhiteSpace(r.DebriefNotes) ? "—" : r.DebriefNotes)</td>
+                                <td class="row-actions">
+                                    <a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Open</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </section>
+}

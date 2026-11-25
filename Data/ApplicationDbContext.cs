@@ -18,6 +18,12 @@ public class ApplicationDbContext : IdentityDbContext
 
     public DbSet<SearchProfile> SearchProfiles => Set<SearchProfile>();
 
+    public DbSet<InterviewRound> InterviewRounds => Set<InterviewRound>();
+
+    public DbSet<StoryBankItem> StoryBankItems => Set<StoryBankItem>();
+
+    public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -45,6 +51,7 @@ public class ApplicationDbContext : IdentityDbContext
         {
             // Almost every query is "this user's applications", so index the owner.
             entity.HasIndex(a => a.UserId);
+            entity.HasIndex(a => new { a.UserId, a.ExternalAttemptId });
 
             entity.HasOne(a => a.ResumeVersion)
                 .WithMany()
@@ -61,6 +68,28 @@ public class ApplicationDbContext : IdentityDbContext
         {
             // One search profile per user.
             entity.HasIndex(p => p.UserId).IsUnique();
+        });
+
+        builder.Entity<InterviewRound>(entity =>
+        {
+            entity.HasIndex(r => r.UserId);
+            entity.HasIndex(r => new { r.JobApplicationId, r.RoundNumber });
+
+            entity.HasOne(r => r.JobApplication)
+                .WithMany(a => a.InterviewRounds)
+                .HasForeignKey(r => r.JobApplicationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StoryBankItem>(entity =>
+        {
+            entity.HasIndex(s => s.UserId);
+        });
+
+        builder.Entity<ApiToken>(entity =>
+        {
+            entity.HasIndex(t => t.UserId);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
         });
     }
 }

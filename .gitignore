@@ -383,3 +383,11 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 .idea/
+
+# Local development data & worktrees
+App_Data/
+*.db
+*.db-shm
+*.db-wal
+.codex-worktrees/
+jobhunt-hq.bundle

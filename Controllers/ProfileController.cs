@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using JobHuntHQ.Data;
 using JobHuntHQ.Models;
+using JobHuntHQ.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +19,17 @@ namespace JobHuntHQ.Controllers;
 public class ProfileController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly FitCheckService _fitCheck;
+    private readonly IResumeStorageService _storage;
 
-    public ProfileController(ApplicationDbContext context)
+    public ProfileController(
+        ApplicationDbContext context,
+        FitCheckService fitCheck,
+        IResumeStorageService storage)
     {
         _context = context;
+        _fitCheck = fitCheck;
+        _storage = storage;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -33,7 +41,72 @@ public class ProfileController : Controller
     public async Task<IActionResult> Index()
     {
         var profile = await FindMineAsync();
+        var tokens = await _context.ApiTokens
+            .Where(t => t.UserId == CurrentUserId && t.RevokedUtc == null)
+            .OrderByDescending(t => t.CreatedUtc)
+            .ToListAsync();
+        ViewData["ApiTokens"] = tokens;
         return View(profile);
+    }
+
+    // POST: Profile/CreateToken — create a personal jhq_ API token, shown once.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateToken(string? name, string[]? scopes)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            TempData["ErrorMessage"] = "Give your API token a descriptive name (for example, 'Claude Code' or 'My AI Assistant').";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var validSet = ApiToken.AllScopes.Select(s => s.Scope).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var chosenScopes = (scopes ?? Array.Empty<string>())
+            .Where(s => validSet.Contains(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (chosenScopes.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Select at least one capability scope for your API token.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var (rawToken, displayPrefix, sha256Hex) = ApiToken.Generate();
+        var entity = new ApiToken
+        {
+            UserId = CurrentUserId,
+            Name = name.Trim()[..Math.Min(100, name.Trim().Length)],
+            TokenPrefix = displayPrefix,
+            TokenHash = sha256Hex,
+            Scopes = string.Join(",", chosenScopes),
+            CreatedUtc = DateTime.UtcNow
+        };
+
+        _context.ApiTokens.Add(entity);
+        await _context.SaveChangesAsync();
+
+        TempData["NewApiTokenPlaintext"] = rawToken;
+        TempData["NewApiTokenName"] = entity.Name;
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: Profile/RevokeToken/5 — instant self-serve revocation.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeToken(int id)
+    {
+        var token = await _context.ApiTokens
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == CurrentUserId);
+        if (token is null)
+        {
+            return NotFound();
+        }
+
+        token.RevokedUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = $"Revoked API token \"{token.Name}\" ({token.TokenPrefix}…).";
+        return RedirectToAction(nameof(Index));
     }
 
     // GET: Profile/Edit
@@ -71,6 +144,44 @@ public class ProfileController : Controller
         model.ApplyTo(profile);
         profile.UpdatedUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = "Search profile saved. Future and re-checked postings will use your updated criteria.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: Profile/RecheckAll — re-run the deterministic fit check across all
+    // of the signed-in user's tracked applications against their current profile.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RecheckAll()
+    {
+        var profile = await FindMineAsync();
+        if (profile is null)
+        {
+            TempData["ErrorMessage"] = "Create your search profile first before running a bulk fit check.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var applications = await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId)
+            .ToListAsync();
+
+        var checkedCount = 0;
+        foreach (var app in applications)
+        {
+            var result = _fitCheck.Evaluate(app, profile);
+            app.FitVerdict = result.Verdict;
+            app.FitReasons = result.ReasonsText;
+            checkedCount++;
+        }
+
+        if (checkedCount > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        TempData["StatusMessage"] = checkedCount == 0
+            ? "No applications tracked yet to re-check."
+            : $"Re-checked fit across all {checkedCount} application{(checkedCount == 1 ? "" : "s")} against your search profile.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -83,12 +194,17 @@ public class ProfileController : Controller
     {
         var profile = await FindMineAsync();
         var applications = await _context.JobApplications
+            .Include(a => a.InterviewRounds)
             .Where(a => a.UserId == CurrentUserId)
             .OrderBy(a => a.Id)
             .ToListAsync();
         var resumes = await _context.ResumeVersions
             .Where(r => r.UserId == CurrentUserId)
             .OrderBy(r => r.Id)
+            .ToListAsync();
+        var stories = await _context.StoryBankItems
+            .Where(s => s.UserId == CurrentUserId)
+            .OrderBy(s => s.Id)
             .ToListAsync();
 
         var export = new UserDataExport
@@ -97,10 +213,105 @@ public class ProfileController : Controller
             AccountEmail = User.Identity?.Name ?? string.Empty,
             SearchProfile = profile is null ? null : SearchProfileExport.FromEntity(profile),
             Applications = applications.Select(ApplicationExport.FromEntity).ToList(),
-            ResumeVersions = resumes.Select(ResumeVersionExport.FromEntity).ToList()
+            ResumeVersions = resumes.Select(ResumeVersionExport.FromEntity).ToList(),
+            StoryBank = stories.Select(StoryBankExport.FromEntity).ToList()
         };
 
         var json = JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
         return File(Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", "jobhunt-hq-my-data.json");
+    }
+
+    // GET: Profile/ExportCsv — round-trip CSV export of the user's applications
+    // matching the /Import column format.
+    public async Task<IActionResult> ExportCsv()
+    {
+        var applications = await _context.JobApplications
+            .Include(a => a.ResumeVersion)
+            .Where(a => a.UserId == CurrentUserId)
+            .OrderByDescending(a => a.UpdatedUtc)
+            .ToListAsync();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Company,Title,Url,Location,Status,DateApplied,NextAction,NextActionDue,SalaryMin,SalaryMax,ResumeName,FitVerdict,ConfirmationReference,Notes");
+        foreach (var a in applications)
+        {
+            var fields = new[]
+            {
+                CsvEscape(a.Company),
+                CsvEscape(a.RoleTitle),
+                CsvEscape(a.PostingUrl ?? a.Url),
+                CsvEscape(a.Location),
+                CsvEscape(a.Status.ToString()),
+                CsvEscape(a.DateApplied?.ToString("yyyy-MM-dd")),
+                CsvEscape(a.NextAction),
+                CsvEscape(a.NextActionDue?.ToString("yyyy-MM-dd")),
+                CsvEscape((a.PayMin ?? a.SalaryMin)?.ToString()),
+                CsvEscape((a.PayMax ?? a.SalaryMax)?.ToString()),
+                CsvEscape(a.ResumeVersion?.Name),
+                CsvEscape(a.FitVerdict),
+                CsvEscape(a.ConfirmationReference),
+                CsvEscape(a.Notes)
+            };
+            sb.AppendLine(string.Join(",", fields));
+        }
+
+        return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8", "jobhunt-hq-applications.csv");
+    }
+
+    // POST: Profile/DeleteAllMyData — self-serve wipe of all user data + uploaded
+    // resume blobs so closing an account does not require manual item-by-item deletes.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAllMyData(string? confirmText)
+    {
+        if (!string.Equals(confirmText?.Trim(), "DELETE", StringComparison.Ordinal))
+        {
+            TempData["ErrorMessage"] = "Type DELETE in all caps to confirm wiping your tracked data.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var resumes = await _context.ResumeVersions
+            .Where(r => r.UserId == CurrentUserId)
+            .ToListAsync();
+        foreach (var r in resumes)
+        {
+            if (!string.IsNullOrWhiteSpace(r.BlobName))
+            {
+                await _storage.DeleteAsync(r.BlobName);
+            }
+        }
+
+        var rounds = await _context.InterviewRounds.Where(r => r.UserId == CurrentUserId).ToListAsync();
+        var apps = await _context.JobApplications.Where(a => a.UserId == CurrentUserId).ToListAsync();
+        var stories = await _context.StoryBankItems.Where(s => s.UserId == CurrentUserId).ToListAsync();
+        var tokens = await _context.ApiTokens.Where(t => t.UserId == CurrentUserId).ToListAsync();
+        var profile = await FindMineAsync();
+
+        _context.InterviewRounds.RemoveRange(rounds);
+        _context.JobApplications.RemoveRange(apps);
+        _context.ResumeVersions.RemoveRange(resumes);
+        _context.StoryBankItems.RemoveRange(stories);
+        _context.ApiTokens.RemoveRange(tokens);
+        if (profile is not null)
+        {
+            _context.SearchProfiles.Remove(profile);
+        }
+
+        await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = "All of your applications, interview rounds, STAR stories, resumes, and search profile have been permanently deleted.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "";
+        }
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+        {
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }

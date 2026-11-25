@@ -41,13 +41,14 @@
 
     // Recompute one column's count, empty note, and WIP nudge from the DOM.
     function refreshColumn(column) {
-        var cards = column.querySelectorAll("[data-card]");
+        var allCards = column.querySelectorAll("[data-card]");
+        var visibleCards = Array.from(allCards).filter(function (c) { return !c.hidden; });
         var countEl = column.querySelector("[data-count]");
-        if (countEl) countEl.textContent = cards.length;
+        if (countEl) countEl.textContent = visibleCards.length;
 
         var container = column.querySelector("[data-cards]");
         var emptyNote = container.querySelector("[data-empty-note]");
-        if (cards.length === 0) {
+        if (visibleCards.length === 0) {
             if (!emptyNote) {
                 emptyNote = document.createElement("p");
                 emptyNote.className = "empty-note board-empty";
@@ -63,8 +64,8 @@
         var wip = column.querySelector("[data-wip-note]");
         if (wip) {
             var limit = parseInt(wip.getAttribute("data-wip-limit"), 10);
-            if (!isNaN(limit) && cards.length > limit) {
-                wip.textContent = cards.length + " here \u2014 " + wip.getAttribute("data-wip-hint");
+            if (!isNaN(limit) && allCards.length > limit) {
+                wip.textContent = allCards.length + " here \u2014 " + wip.getAttribute("data-wip-hint");
                 wip.hidden = false;
             } else {
                 wip.hidden = true;
@@ -88,6 +89,9 @@
         card.setAttribute("data-status", status);
         var select = card.querySelector("[data-move-select]");
         if (select) select.value = status;
+        card.classList.remove("card-moved");
+        void card.offsetWidth;
+        card.classList.add("card-moved");
         refreshAllColumns();
     }
 
@@ -166,4 +170,34 @@
             moveCard(card, column.getAttribute("data-status"));
         });
     });
+
+    // ---- Board toolbar filtering & hide-closed toggle ----
+    var searchInput = document.getElementById("board-search");
+    var fitSelect = document.getElementById("board-fit-filter");
+    var hideClosedCheckbox = document.getElementById("board-hide-closed");
+
+    function applyBoardFilters() {
+        var term = (searchInput ? searchInput.value : "").trim().toLowerCase();
+        var fit = fitSelect ? fitSelect.value : "";
+        var hideClosed = hideClosedCheckbox ? hideClosedCheckbox.checked : false;
+
+        document.querySelectorAll("[data-card]").forEach(function (card) {
+            var cardText = card.getAttribute("data-text") || "";
+            var cardFit = card.getAttribute("data-fit") || "not-checked";
+            var matchesText = !term || cardText.indexOf(term) !== -1;
+            var matchesFit = !fit || cardFit === fit;
+            card.hidden = !(matchesText && matchesFit);
+        });
+
+        document.querySelectorAll("[data-column]").forEach(function (column) {
+            var isClosed = column.getAttribute("data-closed") === "true";
+            column.hidden = hideClosed && isClosed;
+        });
+
+        refreshAllColumns();
+    }
+
+    if (searchInput) searchInput.addEventListener("input", applyBoardFilters);
+    if (fitSelect) fitSelect.addEventListener("change", applyBoardFilters);
+    if (hideClosedCheckbox) hideClosedCheckbox.addEventListener("change", applyBoardFilters);
 })();

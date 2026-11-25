@@ -3,20 +3,54 @@
 }
 
 <section class="hero">
-    <p class="hero-eyebrow">For job seekers</p>
+    <p class="hero-eyebrow">For job seekers who prepare with AI</p>
     <h1>JobHunt HQ</h1>
-    <p class="pitch">Track every application, never miss a follow-up.</p>
+    <p class="pitch">Track every application. Prepare with your own AI. Apply as yourself.</p>
     <p class="hero-sub">
-        One calm place for your whole job search — every posting you save, every
-        application you send, and every next step, all in a single pipeline.
+        One calm workspace for your whole job search — check every posting against
+        your own criteria, export a fact-locked AI packet for the assistant you already
+        use, and track every follow-up across your pipeline.
     </p>
-    <a class="button" asp-controller="Home" asp-action="Dashboard">Open my dashboard</a>
+    <div class="hero-actions">
+        <a class="button" asp-controller="Home" asp-action="Dashboard">Open my dashboard</a>
+        <a class="button button-secondary" asp-area="Identity" asp-page="/Account/Register">Create an account</a>
+    </div>
+</section>
+
+<section class="trust-callout" aria-label="Core product promise">
+    <strong>The never-submit rule:</strong> JobHunt HQ never submits an application for you, never logs into job boards or employer sites as you, and never invents experience. It prepares and visualizes — you review and press submit yourself.
+</section>
+
+<section class="workflow-section">
+    <h2>How a posting becomes a prepared application</h2>
+    <div class="workflow-grid">
+        <div class="workflow-step">
+            <span class="workflow-num">1</span>
+            <h3>Set your criteria once</h3>
+            <p>Save your target roles, pay floor, must-haves, deal-breakers, skip companies, and standing answers in your search profile.</p>
+        </div>
+        <div class="workflow-step">
+            <span class="workflow-num">2</span>
+            <h3>Capture &amp; check fit</h3>
+            <p>Paste a posting or fetch it from its URL. A deterministic rule check scores the match (<span class="status-pill fit-pill fit-strong-fit">Strong fit</span>, <span class="status-pill fit-pill fit-possible">Possible</span>, <span class="status-pill fit-pill fit-blocked">Blocked</span>) and explains every point.</p>
+        </div>
+        <div class="workflow-step">
+            <span class="workflow-num">3</span>
+            <h3>Hand the packet to your AI</h3>
+            <p>Download or copy a self-contained AI packet (.md or .json) containing the posting, fit reasons, standing answers, ATS form guide, and your resume text — wrapped in strict fact-only instructions.</p>
+        </div>
+        <div class="workflow-step">
+            <span class="workflow-num">4</span>
+            <h3>Review, apply &amp; follow up</h3>
+            <p>Submit the application yourself, record the resume used and next action due date, and drag the card across your pipeline board.</p>
+        </div>
+    </div>
 </section>
 
 <section class="pipeline-section">
     <h2>Your search, as a pipeline</h2>
     <p>
-        Every opportunity moves through the same five stages, so you always know
+        Every opportunity moves through the same five active stages, so you always know
         where things stand and what needs your attention next.
     </p>
     <ol class="pipeline">
@@ -35,38 +69,47 @@
 <section class="features-section">
     <h2>Everything in one place</h2>
     <div class="features">
-    <div class="feature">
-        <h3>Next actions, not noise</h3>
-        <p>Each application carries a next action and a due date, so follow-ups happen on time instead of by luck.</p>
-    </div>
-    <div class="feature">
-        <h3>The right resume, every time</h3>
-        <p>Keep resume versions on file and record which one went to which application.</p>
-    </div>
-    <div class="feature">
-        <h3>A dashboard that answers back</h3>
-        <p>Counts by stage, follow-ups due this week, and your response rate at a glance.</p>
-    </div>
+        <div class="feature">
+            <h3>Deterministic fit checks</h3>
+            <p>Every rule is transparent: skip lists, deal-breakers, pay floor comparisons, and a must-have keyword checklist.</p>
+        </div>
+        <div class="feature">
+            <h3>Bring-your-own-AI packets</h3>
+            <p>Works with ChatGPT, Claude, or any assistant you trust — with ATS-specific guidance for Workday, Greenhouse, Lever, Ashby, Workable, and iCIMS.</p>
+        </div>
+        <div class="feature">
+            <h3>The right resume, every time</h3>
+            <p>Store resume PDFs privately in Azure Blob Storage, record which version went where, and automatically embed extracted text into packets.</p>
+        </div>
+        <div class="feature">
+            <h3>Next actions, not noise</h3>
+            <p>Each application carries a next action and due date, surfaced on your dashboard, board cards, and daily email digest.</p>
+        </div>
     </div>
 </section>
 
 <section class="status-section">
-    <h2>Project status</h2>
+    <h2>Project milestones</h2>
     <ul class="status-list">
         <li>
             <span class="status-badge status-done">Done</span>
             <strong>M1 — Azure foundation.</strong>
-            The app is live on Azure App Service with continuous deployment from GitHub.
+            Live on Azure App Service with continuous deployment from GitHub.
         </li>
         <li>
             <span class="status-badge status-done">Done</span>
-            <strong>M2 — The real app.</strong>
-            Sign-in, application tracking with full add/edit, and CSV import — live with real applications loaded.
+            <strong>M2 — Core pipeline &amp; tracker.</strong>
+            Account isolation, full application CRUD, status pipeline, dashboard, and CSV import.
         </li>
         <li>
-            <span class="status-badge status-active">In progress</span>
-            <strong>M3 — Cloud-native pieces.</strong>
-            Resume uploads, a daily follow-up digest, and secrets in Key Vault.
+            <span class="status-badge status-done">Done</span>
+            <strong>M3 — Cloud-native storage &amp; telemetry.</strong>
+            Private resume PDF uploads in Blob Storage, daily follow-up digest Function, Key Vault secrets, and Application Insights.
+        </li>
+        <li>
+            <span class="status-badge status-active">Live</span>
+            <strong>M4 — Search profile, fit checks, pipeline board &amp; AI packets.</strong>
+            Deterministic fit scoring, SSRF-guarded URL fetching, interactive Kanban board, and v2 Markdown/JSON AI packets.
         </li>
     </ul>
 </section>
