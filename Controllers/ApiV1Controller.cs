@@ -25,7 +25,11 @@ public class ApiV1Controller : ControllerBase
     private readonly AiPacketService _packet;
     private readonly InterviewPacketService _interviewPacket;
     private readonly PostingFetchService _postingFetch;
+    private readonly IResumeStorageService _resumeStorage;
     private readonly ILogger<ApiV1Controller> _logger;
+
+    private const long MaxResumeFileBytes = 10 * 1024 * 1024; // matches ResumesController
+    private const long MaxResumeUserTotalBytes = 50 * 1024 * 1024;
 
     public ApiV1Controller(
         ApplicationDbContext context,
@@ -33,6 +37,7 @@ public class ApiV1Controller : ControllerBase
         AiPacketService packet,
         InterviewPacketService interviewPacket,
         PostingFetchService postingFetch,
+        IResumeStorageService resumeStorage,
         ILogger<ApiV1Controller> logger)
     {
         _context = context;
@@ -40,7 +45,122 @@ public class ApiV1Controller : ControllerBase
         _packet = packet;
         _interviewPacket = interviewPacket;
         _postingFetch = postingFetch;
+        _resumeStorage = resumeStorage;
         _logger = logger;
+    }
+
+    // ---------- Resume versions ----------
+
+    [HttpGet("resumes")]
+    public async Task<IActionResult> ListResumes()
+    {
+        var (token, err) = await AuthorizeTokenAsync("applications:read");
+        if (err is not null) return err;
+
+        var items = await _context.ResumeVersions
+            .Where(r => r.UserId == token!.UserId)
+            .OrderByDescending(r => r.CreatedUtc)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            items = items.Select(r => new
+            {
+                id = r.Id,
+                name = r.Name,
+                notes = r.Notes,
+                fileName = r.FileName,
+                sizeBytes = r.SizeBytes,
+                hasFile = r.BlobName != null,
+                createdAt = r.CreatedUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            }),
+            count = items.Count
+        });
+    }
+
+    /// <summary>
+    /// Creates a resume version with its PDF (multipart/form-data: name, notes?, file).
+    /// Same rules as the Resumes page: PDF only, 10 MB per file, 50 MB per user.
+    /// Idempotent: re-uploading the same name + same file size returns the existing version.
+    /// </summary>
+    [HttpPost("resumes")]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> UploadResume([FromForm] string? name, [FromForm] string? notes, IFormFile? file)
+    {
+        var (token, err) = await AuthorizeTokenAsync("applications:write");
+        if (err is not null) return err;
+        var userId = token!.UserId;
+
+        if (string.IsNullOrWhiteSpace(name))
+            return ApiError(400, "bad_request", "name is required.");
+        if (file is null || file.Length == 0)
+            return ApiError(400, "bad_request", "A PDF file is required.");
+
+        var isPdf = Path.GetExtension(file.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+            && file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase);
+        if (!isPdf)
+            return ApiError(400, "bad_request", "Only PDF files can be uploaded.");
+        if (file.Length > MaxResumeFileBytes)
+            return ApiError(400, "bad_request", "That PDF file is over the 10 MB limit.");
+
+        var trimmedName = Truncate(name, 200)!;
+        var mine = await _context.ResumeVersions.Where(r => r.UserId == userId).ToListAsync();
+        var existing = mine.FirstOrDefault(r =>
+            string.Equals(r.Name, trimmedName, StringComparison.OrdinalIgnoreCase)
+            && r.SizeBytes == file.Length && r.BlobName != null);
+        if (existing is not null)
+        {
+            return Ok(new { id = existing.Id, name = existing.Name, fileName = existing.FileName, sizeBytes = existing.SizeBytes, created = false });
+        }
+
+        if (mine.Sum(r => r.SizeBytes ?? 0) + file.Length > MaxResumeUserTotalBytes)
+            return ApiError(400, "quota_exceeded", "Uploading this PDF would exceed your 50 MB total resume storage limit.");
+
+        var resume = new ResumeVersion
+        {
+            UserId = userId,
+            Name = trimmedName,
+            Notes = Truncate(notes, 1000),
+            CreatedUtc = DateTime.UtcNow
+        };
+        _context.ResumeVersions.Add(resume);
+        await _context.SaveChangesAsync();
+
+        var blobName = $"{userId}/{resume.Id}/{Guid.NewGuid()}.pdf";
+        await using (var stream = file.OpenReadStream())
+        {
+            await _resumeStorage.UploadAsync(blobName, stream, file.ContentType);
+        }
+        resume.FileName = Path.GetFileName(file.FileName);
+        resume.BlobName = blobName;
+        resume.ContentType = file.ContentType;
+        resume.SizeBytes = file.Length;
+        await _context.SaveChangesAsync();
+
+        return StatusCode(201, new { id = resume.Id, name = resume.Name, fileName = resume.FileName, sizeBytes = resume.SizeBytes, created = true });
+    }
+
+    /// <summary>Links a resume version to one application (or all applications without one).</summary>
+    [HttpPost("resumes/{id:int}/link")]
+    public async Task<IActionResult> LinkResume(int id, [FromQuery] bool onlyUnlinked = true)
+    {
+        var (token, err) = await AuthorizeTokenAsync("applications:write");
+        if (err is not null) return err;
+        var userId = token!.UserId;
+
+        var resume = await _context.ResumeVersions.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
+        if (resume is null) return ApiError(404, "not_found", "Resume version not found.");
+
+        var apps = await _context.JobApplications
+            .Where(a => a.UserId == userId && (!onlyUnlinked || a.ResumeVersionId == null))
+            .ToListAsync();
+        foreach (var a in apps)
+        {
+            a.ResumeVersionId = resume.Id;
+            a.UpdatedUtc = DateTime.UtcNow;
+        }
+        await _context.SaveChangesAsync();
+        return Ok(new { resumeVersionId = resume.Id, linkedCount = apps.Count });
     }
 
     // ---------- Profile ----------
