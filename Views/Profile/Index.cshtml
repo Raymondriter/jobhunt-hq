@@ -121,6 +121,43 @@ else
     }
 }
 
+<section class="dashboard-section" id="calendar">
+    <h2>Calendar sync (Google, Apple, Outlook)</h2>
+    @{
+        var newFeedKey = TempData["NewCalendarFeedKey"] as string;
+        var hasFeed = apiTokens.Any(t => t.HasScope(ApiToken.CalendarScope));
+    }
+    <p class="page-note">
+        Subscribe once and every interview round you schedule here (with a 30-minute reminder) plus your follow-up due dates
+        show up in your calendar automatically. The link is read-only, only shows interview times and follow-ups, and you can revoke it below anytime.
+    </p>
+    @if (!string.IsNullOrWhiteSpace(newFeedKey))
+    {
+        var feedHttps = $"{Context.Request.Scheme}://{Context.Request.Host}/calendar/feed/{newFeedKey}.ics";
+        var feedWebcal = $"webcal://{Context.Request.Host}/calendar/feed/{newFeedKey}.ics";
+        var googleAdd = "https://calendar.google.com/calendar/render?cid=" + Uri.EscapeDataString(feedWebcal);
+        <div class="flash-banner flash-success" role="status">
+            <strong>Your calendar link is ready. Save it now — it is only shown once.</strong>
+            <div class="button-row" style="margin-top: 0.55rem;">
+                <a class="button" href="@googleAdd" target="_blank" rel="noopener noreferrer">Add to Google Calendar &nearr;</a>
+                <a class="button button-secondary" href="@feedWebcal">Apple / Outlook</a>
+                <button type="button" class="button button-secondary button-small" id="copy-feed-url" data-copy="@feedHttps">Copy feed URL</button>
+            </div>
+            <p class="file-meta" style="margin: 0.45rem 0 0;">If Google doesn't open the subscribe prompt: Google Calendar → Other calendars → <strong>+</strong> → From URL → paste the copied feed URL. Google refreshes subscribed calendars every few hours.</p>
+        </div>
+    }
+    else
+    {
+        <form asp-action="CreateCalendarFeed" method="post">
+            <button type="submit" class="button">@(hasFeed ? "Create a new calendar link" : "Connect Google Calendar")</button>
+            @if (hasFeed)
+            {
+                <span class="file-meta" style="margin-left: 0.5rem;">You already have a calendar link ("Calendar feed" below). Creating a new one doesn't revoke the old one.</span>
+            }
+        </form>
+    }
+</section>
+
 <section class="dashboard-section" id="api-tokens">
     <h2>Personal API tokens (Bring-Your-Own-AI)</h2>
     <p class="page-note">
@@ -185,7 +222,7 @@ else
                 <div class="form-grid" style="margin-top: 0.35rem;">
                     @foreach (var (scope, desc) in ApiToken.AllScopes)
                     {
-                        var defaultChecked = scope.EndsWith(":read", StringComparison.Ordinal)
+                        var defaultChecked = (scope.EndsWith(":read", StringComparison.Ordinal) && scope != ApiToken.CalendarScope)
                             || scope == "fitcheck:run"
                             || scope == "packets:generate";
                         <label class="board-toggle-label" style="padding: 0.25rem 0;">
@@ -295,6 +332,7 @@ $@"Use JobHunt HQ ({hostBase}) as the single source of truth for my job search u
         }
         wireProfileCopy('copy-standing-answers');
         wireProfileCopy('copy-new-token');
+        wireProfileCopy('copy-feed-url');
         wireProfileCopy('copy-muse-contract');
     </script>
 }

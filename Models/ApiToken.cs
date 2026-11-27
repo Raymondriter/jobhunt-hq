@@ -14,6 +14,7 @@ namespace JobHuntHQ.Models;
 public class ApiToken
 {
     public const string Prefix = "jhq_";
+    public const string CalendarScope = "calendar:read";
 
     public static readonly (string Scope, string Description)[] AllScopes =
     {
@@ -23,7 +24,8 @@ public class ApiToken
         ("applications:write", "Create/edit applications and move board status"),
         ("postings:write", "Capture postings (paste or SSRF-guarded URL)"),
         ("fitcheck:run", "Run ad-hoc and saved fit checks"),
-        ("packets:generate", "Generate Application & Interview AI packets")
+        ("packets:generate", "Generate Application & Interview AI packets"),
+        (CalendarScope, "Read-only calendar feed of interviews & follow-ups")
     };
 
     public int Id { get; set; }

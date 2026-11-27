@@ -269,6 +269,13 @@ else
                                     <a class="button button-small" href="@r.MeetingUrl" target="_blank" rel="noopener noreferrer">@roundLinkLabel &nearr;</a>
                                 }
                                 <a asp-action="DownloadInterviewIcs" asp-route-id="@app.Id" asp-route-roundId="@r.Id" title="Download .ics calendar invite">.ics</a>
+                                @{
+                                    var gcalUrl = JobHuntHQ.Services.InterviewPacketService.BuildGoogleCalendarUrl(app, r, $"{Context.Request.Scheme}://{Context.Request.Host}/Applications/Interview/{app.Id}?live=true");
+                                }
+                                @if (gcalUrl is not null)
+                                {
+                                    <a href="@gcalUrl" target="_blank" rel="noopener noreferrer" title="Add this round to Google Calendar">Google Calendar &nearr;</a>
+                                }
                                 @if (!isFocused)
                                 {
                                     <a asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Focus packet here</a>

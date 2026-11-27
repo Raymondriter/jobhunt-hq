@@ -451,6 +451,115 @@ public class InterviewPacketService
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Maps the free-text time zone label on a round (e.g. "EST (America/New_York)", "PT")
+    /// to an IANA zone id, or null when unknown (calendars then treat the time as floating).
+    /// </summary>
+    public static string? ResolveIanaTimeZone(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(label, @"[A-Za-z]+/[A-Za-z_]+(?:/[A-Za-z_]+)?");
+        if (m.Success) return m.Value;
+        var l = label.Trim().ToUpperInvariant();
+        if (l.StartsWith("E") && (l.StartsWith("EST") || l.StartsWith("EDT") || l == "ET" || l.StartsWith("EASTERN"))) return "America/New_York";
+        if (l.StartsWith("CST") || l.StartsWith("CDT") || l == "CT" || l.StartsWith("CENTRAL")) return "America/Chicago";
+        if (l.StartsWith("MST") || l.StartsWith("MDT") || l == "MT" || l.StartsWith("MOUNTAIN")) return "America/Denver";
+        if (l.StartsWith("PST") || l.StartsWith("PDT") || l == "PT" || l.StartsWith("PACIFIC")) return "America/Los_Angeles";
+        if (l.StartsWith("UTC") || l.StartsWith("GMT")) return "UTC";
+        if (l.StartsWith("BST") || l.StartsWith("UK")) return "Europe/London";
+        return null;
+    }
+
+    /// <summary>
+    /// One-click "Add to Google Calendar" link (no OAuth, no Google API cost): opens
+    /// Google Calendar's event editor pre-filled with this round.
+    /// </summary>
+    public static string? BuildGoogleCalendarUrl(JobApplication app, InterviewRound round, string? cheatSheetUrl)
+    {
+        if (!round.ScheduledLocal.HasValue) return null;
+        var start = round.ScheduledLocal.Value;
+        var end = start.AddMinutes(round.DurationMinutes > 0 ? round.DurationMinutes : 45);
+        var details = new List<string> { $"Round {round.RoundNumber}: {round.RoundType} ({round.DurationMinutes} min)" };
+        if (!string.IsNullOrWhiteSpace(round.Interviewers)) details.Add($"Interviewer(s): {round.Interviewers}");
+        if (!string.IsNullOrWhiteSpace(round.MeetingUrl)) details.Add($"Join: {round.MeetingUrl}");
+        if (!string.IsNullOrWhiteSpace(cheatSheetUrl)) details.Add($"JobHunt HQ prep: {cheatSheetUrl}");
+
+        var q = new List<string>
+        {
+            "action=TEMPLATE",
+            "text=" + Uri.EscapeDataString($"Interview: {app.Company} — {app.RoleTitle}"),
+            $"dates={start:yyyyMMddTHHmmss}/{end:yyyyMMddTHHmmss}",
+            "details=" + Uri.EscapeDataString(string.Join("\n", details))
+        };
+        if (!string.IsNullOrWhiteSpace(round.MeetingUrl)) q.Add("location=" + Uri.EscapeDataString(round.MeetingUrl));
+        var tz = ResolveIanaTimeZone(round.TimeZoneLabel);
+        if (tz is not null) q.Add("ctz=" + Uri.EscapeDataString(tz));
+        return "https://calendar.google.com/calendar/render?" + string.Join("&", q);
+    }
+
+    /// <summary>
+    /// A subscribable iCalendar feed of the user's interview rounds and upcoming
+    /// follow-up due dates. Google Calendar, Apple Calendar and Outlook can all
+    /// subscribe to it by URL; they refresh it on their own schedule.
+    /// </summary>
+    public static string BuildCalendarFeed(IEnumerable<JobApplication> apps, string baseUrl)
+    {
+        var sb = new StringBuilder();
+        sb.Append("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//JobHunt HQ//Calendar Feed//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n");
+        sb.Append("X-WR-CALNAME:JobHunt HQ\r\nX-WR-CALDESC:Interviews and follow-ups from JobHunt HQ\r\n");
+        sb.Append("REFRESH-INTERVAL;VALUE=DURATION:PT4H\r\nX-PUBLISHED-TTL:PT4H\r\n");
+        var stamp = DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ");
+        var closed = new[] { ApplicationStatus.Rejected, ApplicationStatus.Ghosted, ApplicationStatus.Withdrawn };
+
+        foreach (var app in apps)
+        {
+            var workspaceUrl = $"{baseUrl}/Applications/Interview/{app.Id}";
+            foreach (var round in app.InterviewRounds.Where(r => r.ScheduledLocal.HasValue))
+            {
+                var start = round.ScheduledLocal!.Value;
+                var end = start.AddMinutes(round.DurationMinutes > 0 ? round.DurationMinutes : 45);
+                var tz = ResolveIanaTimeZone(round.TimeZoneLabel);
+                var tzParam = tz is null ? "" : $";TZID={tz}";
+                var desc = new List<string> { $"Round {round.RoundNumber}: {round.RoundType}" };
+                if (!string.IsNullOrWhiteSpace(round.Interviewers)) desc.Add($"Interviewer(s): {round.Interviewers}");
+                if (!string.IsNullOrWhiteSpace(round.MeetingUrl)) desc.Add($"Join: {round.MeetingUrl}");
+                desc.Add($"Prep workspace: {workspaceUrl}");
+
+                sb.Append("BEGIN:VEVENT\r\n");
+                sb.Append($"UID:jobhunthq-app-{app.Id}-round-{round.Id}@jobhunthq\r\n");
+                sb.Append($"DTSTAMP:{stamp}\r\n");
+                sb.Append($"DTSTART{tzParam}:{start:yyyyMMddTHHmmss}\r\n");
+                sb.Append($"DTEND{tzParam}:{end:yyyyMMddTHHmmss}\r\n");
+                sb.Append($"SUMMARY:{IcsEscape($"{(round.Completed ? "✓ " : "")}Interview: {app.Company} — {round.RoundType}")}\r\n");
+                if (!string.IsNullOrWhiteSpace(round.MeetingUrl)) sb.Append($"LOCATION:{IcsEscape(round.MeetingUrl)}\r\n");
+                sb.Append($"DESCRIPTION:{IcsEscape(string.Join("\n", desc))}\r\n");
+                sb.Append($"URL:{workspaceUrl}\r\n");
+                if (!round.Completed)
+                {
+                    sb.Append("BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Interview in 30 minutes\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\n");
+                }
+                sb.Append("END:VEVENT\r\n");
+            }
+
+            if (app.NextActionDue.HasValue && !closed.Contains(app.Status) && !string.IsNullOrWhiteSpace(app.NextAction))
+            {
+                var due = app.NextActionDue.Value;
+                sb.Append("BEGIN:VEVENT\r\n");
+                sb.Append($"UID:jobhunthq-app-{app.Id}-followup-{due:yyyyMMdd}@jobhunthq\r\n");
+                sb.Append($"DTSTAMP:{stamp}\r\n");
+                sb.Append($"DTSTART;VALUE=DATE:{due:yyyyMMdd}\r\n");
+                sb.Append($"DTEND;VALUE=DATE:{due.AddDays(1):yyyyMMdd}\r\n");
+                sb.Append($"SUMMARY:{IcsEscape($"Follow-up: {app.Company} — {app.NextAction}")}\r\n");
+                sb.Append($"DESCRIPTION:{IcsEscape($"{app.RoleTitle} at {app.Company} ({app.Status})\n{baseUrl}/Applications/Details/{app.Id}")}\r\n");
+                sb.Append("TRANSP:TRANSPARENT\r\n");
+                sb.Append("END:VEVENT\r\n");
+            }
+        }
+
+        sb.Append("END:VCALENDAR\r\n");
+        return sb.ToString();
+    }
+
     private static IReadOnlyList<(string Title, string Prompt)> BuildReadyPrompts(
         JobApplication app,
         InterviewRound? focusRound)

@@ -93,6 +93,13 @@
                                 <a class="button button-small" asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-live="true" asp-route-focusRoundId="@r.Id">Live cheat sheet</a>
                                 <a asp-controller="Applications" asp-action="Interview" asp-route-id="@app.Id" asp-route-focusRoundId="@r.Id">Prep &amp; AI packet</a>
                                 <a asp-controller="Applications" asp-action="DownloadInterviewIcs" asp-route-id="@app.Id" asp-route-roundId="@r.Id" title="Download calendar invite">.ics</a>
+                                @{
+                                    var gcalUrl = JobHuntHQ.Services.InterviewPacketService.BuildGoogleCalendarUrl(app, r, $"{Context.Request.Scheme}://{Context.Request.Host}/Applications/Interview/{app.Id}?live=true");
+                                }
+                                @if (gcalUrl is not null)
+                                {
+                                    <a href="@gcalUrl" target="_blank" rel="noopener noreferrer">Google Calendar &nearr;</a>
+                                }
                             </td>
                         </tr>
                     }

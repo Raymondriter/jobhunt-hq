@@ -91,6 +91,28 @@ public class ProfileController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // POST: Profile/CreateCalendarFeed — one click: a calendar:read-only token
+    // whose URL Google/Apple/Outlook Calendar can subscribe to. Shown once.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateCalendarFeed()
+    {
+        var (rawToken, displayPrefix, sha256Hex) = ApiToken.Generate();
+        _context.ApiTokens.Add(new ApiToken
+        {
+            UserId = CurrentUserId,
+            Name = "Calendar feed",
+            TokenPrefix = displayPrefix,
+            TokenHash = sha256Hex,
+            Scopes = ApiToken.CalendarScope,
+            CreatedUtc = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        TempData["NewCalendarFeedKey"] = rawToken;
+        return Redirect(Url.Action(nameof(Index))! + "#calendar");
+    }
+
     // POST: Profile/RevokeToken/5 — instant self-serve revocation.
     [HttpPost]
     [ValidateAntiForgeryToken]
