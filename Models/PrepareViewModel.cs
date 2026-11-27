@@ -23,6 +23,12 @@ public class PrepareViewModel
     /// <summary>Must-have keywords from the profile, each marked present/missing in the posting text.</summary>
     public List<MustHaveCheck> MustHaveChecks { get; set; } = new();
 
+    /// <summary>Instant deterministic Resume-vs-Posting skill match (no external AI required).</summary>
+    public Services.ResumeMatchReport? ResumeMatch { get; set; }
+
+    /// <summary>Parsed standing answers for one-click copying on application forms.</summary>
+    public List<Services.StandingAnswerCard> StandingAnswerCards { get; set; } = new();
+
     /// <summary>The generated bring-your-own-AI packet, as Markdown.</summary>
     public string PacketMarkdown { get; set; } = string.Empty;
 

@@ -236,6 +236,35 @@ else
         <span><strong>Resume sent:</strong> @(Model.ChosenResume?.Name ?? "None linked")</span>
     </div>
 
+    @if (Model.ResumeMatch is { } irm && (irm.MatchedSkills.Count > 0 || irm.MissingSkills.Count > 0))
+    {
+        <section class="prepare-card" style="margin-bottom: 1.25rem;">
+            <div class="section-heading">
+                <h2 style="margin: 0; font-size: 1rem;">Instant resume-vs-posting talking points @(irm.MatchPercent.HasValue ? $"({irm.MatchPercent}% overlap)" : "")</h2>
+                <span class="file-meta">Computed locally — no AI needed</span>
+            </div>
+            @if (irm.MatchedSkills.Count > 0)
+            {
+                <div class="keyword-chips" style="margin-top: 0.45rem;">
+                    @foreach (var sk in irm.MatchedSkills)
+                    {
+                        <span class="keyword-chip keyword-chip-good">✓ @sk</span>
+                    }
+                </div>
+            }
+            @if (irm.MissingSkills.Count > 0)
+            {
+                <div class="keyword-chips" style="margin-top: 0.4rem;">
+                    <span class="file-meta" style="align-self: center; margin-right: 0.25rem;">Prepare honest bridge for:</span>
+                    @foreach (var sk in irm.MissingSkills)
+                    {
+                        <span class="keyword-chip keyword-chip-warn">@sk</span>
+                    }
+                </div>
+            }
+        </section>
+    }
+
     <section class="dashboard-section">
         <div class="section-heading">
             <h2>1. Interview rounds &amp; schedule (@Model.Rounds.Count)</h2>

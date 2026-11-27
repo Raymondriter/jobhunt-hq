@@ -2,7 +2,34 @@
     ViewData["Title"] = "Import applications";
 }
 
-<h1>Import applications from CSV</h1>
+<h1>Quick-update &amp; import applications</h1>
+
+<section class="dashboard-section prepare-workspace-box" id="email-import">
+    <h2>Paste any job email (confirmation, rejection, or interview invite)</h2>
+    <p class="page-note">
+        No Gmail sign-in or AI setup needed — paste any email from Workday, Lever, Ashby, Workable, Greenhouse, NEOGOV, or Microsoft Teams/Zoom.
+        JobHunt HQ automatically detects the company, role, status (Applied / Interview / Rejected), and any interview date or call link.
+    </p>
+    <form asp-action="ParseEmail" method="post" class="workspace-form">
+        <div class="form-row">
+            <label for="rawEmailText">Email text (include Subject/From lines if handy)</label>
+            <textarea id="rawEmailText" name="rawEmailText" rows="6" required placeholder="Paste the confirmation, rejection, or interview invite email here…"></textarea>
+        </div>
+        <div class="form-grid">
+            <div class="form-row">
+                <label for="companyOverride">Company override (optional)</label>
+                <input type="text" id="companyOverride" name="companyOverride" maxlength="200" placeholder="Auto-detected if left blank" />
+            </div>
+            <div class="form-row">
+                <label for="roleOverride">Role title override (optional)</label>
+                <input type="text" id="roleOverride" name="roleOverride" maxlength="200" placeholder="Auto-detected if left blank" />
+            </div>
+        </div>
+        <button type="submit" class="button">Detect &amp; save to tracker</button>
+    </form>
+</section>
+
+<h2 style="margin-top: 2rem;">Import applications from CSV</h2>
 
 <p>
     Upload a <code>.csv</code> file (up to 2 MB) with one application per row.

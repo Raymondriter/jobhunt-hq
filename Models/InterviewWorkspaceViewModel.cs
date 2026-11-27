@@ -39,6 +39,9 @@ public class InterviewWorkspaceViewModel
 
     public List<MustHaveCheck> MustHaveChecks { get; set; } = new();
 
+    /// <summary>Instant deterministic Resume-vs-Posting skill match (no external AI required).</summary>
+    public Services.ResumeMatchReport? ResumeMatch { get; set; }
+
     /// <summary>Self-contained Interview Prep AI Packet as Markdown.</summary>
     public string InterviewPacketMarkdown { get; set; } = string.Empty;
 

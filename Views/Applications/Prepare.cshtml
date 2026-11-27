@@ -53,16 +53,43 @@
     </section>
 
     <section class="prepare-card">
-        <h2>2. Must-have checklist</h2>
-        @if (Model.Profile is null)
+        <h2>2. Instant skill match (no AI needed)</h2>
+        @if (Model.ResumeMatch is { } rm && (rm.MatchedSkills.Count > 0 || rm.MissingSkills.Count > 0))
         {
-            <p class="empty-note">No <a asp-controller="Profile" asp-action="Index">search profile</a> yet — create one and add must-haves to see them checked here.</p>
+            if (rm.MatchPercent.HasValue)
+            {
+                <p style="margin: 0 0 0.5rem;">
+                    <strong>@rm.MatchPercent% keyword overlap</strong> between this posting and <em>@(Model.ChosenResume?.Name ?? "your resume")</em>.
+                </p>
+            }
+            else if (!rm.HasResumeText)
+            {
+                <p class="file-meta" style="margin: 0 0 0.5rem;">
+                    <a asp-controller="Resumes" asp-action="Create">Upload your resume PDF</a> to automatically see which of these posting skills you already cover.
+                </p>
+            }
+            @if (rm.MatchedSkills.Count > 0)
+            {
+                <p class="file-meta" style="margin: 0.35rem 0 0.2rem;"><strong>Covered on your resume (@rm.MatchedSkills.Count):</strong></p>
+                <div class="keyword-chips" style="margin-bottom: 0.5rem;">
+                    @foreach (var sk in rm.MatchedSkills)
+                    {
+                        <span class="keyword-chip keyword-chip-good">✓ @sk</span>
+                    }
+                </div>
+            }
+            @if (rm.MissingSkills.Count > 0)
+            {
+                <p class="file-meta" style="margin: 0.35rem 0 0.2rem;"><strong>@(rm.HasResumeText ? "In posting, not yet in resume text" : "Detected in posting") (@rm.MissingSkills.Count):</strong></p>
+                <div class="keyword-chips">
+                    @foreach (var sk in rm.MissingSkills)
+                    {
+                        <span class="keyword-chip keyword-chip-warn">@sk</span>
+                    }
+                </div>
+            }
         }
-        else if (Model.MustHaveChecks.Count == 0)
-        {
-            <p class="empty-note">Your profile lists no must-haves — <a asp-controller="Profile" asp-action="Edit">add some</a> and they'll be checked against the posting here.</p>
-        }
-        else
+        else if (Model.MustHaveChecks.Count > 0)
         {
             <ul class="check-list">
                 @foreach (var check in Model.MustHaveChecks)
@@ -74,8 +101,34 @@
                 }
             </ul>
         }
+        else
+        {
+            <p class="empty-note">Add posting text via <a asp-action="Edit" asp-route-id="@app.Id">Edit</a> and upload a <a asp-controller="Resumes" asp-action="Index">resume PDF</a> to see instant skill matches and gaps here — no external AI required.</p>
+        }
     </section>
 </div>
+
+@if (Model.StandingAnswerCards.Count > 0)
+{
+    <section class="dashboard-section">
+        <div class="section-heading">
+            <h2>Quick-copy standing answers (for application forms)</h2>
+            <a class="link-subtle" asp-controller="Profile" asp-action="Edit">Edit standing answers</a>
+        </div>
+        <div class="prompt-cards-grid">
+            @foreach (var card in Model.StandingAnswerCards)
+            {
+                <div class="prompt-card">
+                    <div class="prompt-card-header">
+                        <strong>@card.Label</strong>
+                        <button type="button" class="button button-secondary button-small standing-copy-btn" data-copy-value="@card.Value" onclick="navigator.clipboard.writeText(this.dataset.copyValue).then(()=>{const t=this.textContent;this.textContent='Copied!';setTimeout(()=>this.textContent=t,1500);});">Copy</button>
+                    </div>
+                    <p class="prompt-card-body">@card.Value</p>
+                </div>
+            }
+        </div>
+    </section>
+}
 
 <section class="dashboard-section prepare-workspace-box">
     <h2>3. Preparation &amp; outcome workspace</h2>

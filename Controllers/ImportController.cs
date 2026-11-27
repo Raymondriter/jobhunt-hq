@@ -29,6 +29,130 @@ public class ImportController : Controller
         return View();
     }
 
+    // POST: Import/ParseEmail — paste any confirmation, rejection, or interview
+    // email (Workday, Lever, Ashby, Workable, Greenhouse, Teams, Zoom) to add
+    // or update an application in one click with zero AI cost and no OAuth.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ParseEmail(string? rawEmailText, string? companyOverride, string? roleOverride)
+    {
+        if (string.IsNullOrWhiteSpace(rawEmailText))
+        {
+            TempData["ErrorMessage"] = "Paste an email (confirmation, rejection, or interview invite) first.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var parsed = EmailParserService.Parse(rawEmailText, companyOverride, roleOverride);
+        if (string.IsNullOrWhiteSpace(parsed.Company))
+        {
+            TempData["ErrorMessage"] = "Couldn't detect the company name automatically — fill in the optional Company field and try again.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var now = DateTime.UtcNow;
+
+        // Match existing open/recent application by Company (+ RoleTitle if multiple exist).
+        var companyApps = await _context.JobApplications
+            .Include(a => a.InterviewRounds)
+            .Where(a => a.UserId == CurrentUserId
+                        && a.Company.ToLower() == parsed.Company.ToLower())
+            .OrderByDescending(a => a.UpdatedUtc)
+            .ToListAsync();
+
+        var app = companyApps.FirstOrDefault(a =>
+            string.Equals(a.RoleTitle.Trim(), parsed.RoleTitle.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? (parsed.DetectedStatus is ApplicationStatus.Interview or ApplicationStatus.Rejected
+                ? companyApps.FirstOrDefault(a => !a.Status.IsClosed()) ?? companyApps.FirstOrDefault()
+                : null);
+
+        var created = false;
+        if (app is null)
+        {
+            created = true;
+            app = new JobApplication
+            {
+                UserId = CurrentUserId,
+                Company = Truncate(parsed.Company, 200)!,
+                RoleTitle = Truncate(parsed.RoleTitle, 200)!,
+                Status = parsed.DetectedStatus,
+                DateSaved = today,
+                DateApplied = parsed.DateApplied ?? today,
+                ConfirmationReference = Truncate(parsed.ConfirmationReference, 200),
+                Notes = parsed.SummaryNote,
+                SourceAgent = "Email Paste",
+                CreatedUtc = now,
+                UpdatedUtc = now
+            };
+            _context.JobApplications.Add(app);
+        }
+        else
+        {
+            // Never downgrade an Interview/Offer back to Applied.
+            var keepHigher = app.Status is ApplicationStatus.Interview or ApplicationStatus.Offer
+                && parsed.DetectedStatus is ApplicationStatus.Saved or ApplicationStatus.Applied;
+            if (!keepHigher)
+            {
+                app.Status = parsed.DetectedStatus;
+            }
+            if (!string.IsNullOrWhiteSpace(parsed.ConfirmationReference))
+            {
+                app.ConfirmationReference = Truncate(parsed.ConfirmationReference, 200);
+            }
+            app.Notes = string.IsNullOrWhiteSpace(app.Notes)
+                ? parsed.SummaryNote
+                : Truncate($"{app.Notes}\n{parsed.SummaryNote}", 4000);
+            app.UpdatedUtc = now;
+        }
+
+        if (parsed.DetectedStatus == ApplicationStatus.Interview
+            && (parsed.InterviewScheduledLocal.HasValue || !string.IsNullOrWhiteSpace(parsed.MeetingUrl)))
+        {
+            var nextNum = app.InterviewRounds.Count == 0 ? 1 : app.InterviewRounds.Max(r => r.RoundNumber) + 1;
+            var existingRound = app.InterviewRounds.FirstOrDefault(r => !r.Completed);
+            if (existingRound is null)
+            {
+                app.InterviewRounds.Add(new InterviewRound
+                {
+                    UserId = CurrentUserId,
+                    RoundNumber = nextNum,
+                    RoundType = "Recruiter Screen",
+                    ScheduledLocal = parsed.InterviewScheduledLocal,
+                    TimeZoneLabel = Truncate(parsed.TimeZoneLabel, 60),
+                    DurationMinutes = parsed.InterviewDurationMinutes,
+                    MeetingUrl = Truncate(parsed.MeetingUrl, 1000),
+                    Interviewers = Truncate(parsed.Interviewer, 500),
+                    CreatedUtc = now,
+                    UpdatedUtc = now
+                });
+            }
+            else
+            {
+                if (parsed.InterviewScheduledLocal.HasValue) existingRound.ScheduledLocal = parsed.InterviewScheduledLocal;
+                if (!string.IsNullOrWhiteSpace(parsed.MeetingUrl)) existingRound.MeetingUrl = Truncate(parsed.MeetingUrl, 1000);
+                if (!string.IsNullOrWhiteSpace(parsed.Interviewer) && string.IsNullOrWhiteSpace(existingRound.Interviewers))
+                    existingRound.Interviewers = Truncate(parsed.Interviewer, 500);
+                existingRound.UpdatedUtc = now;
+            }
+
+            if (parsed.InterviewScheduledLocal.HasValue)
+            {
+                app.NextAction = Truncate($"Interview ({parsed.InterviewScheduledLocal.Value:MMM d, h:mm tt})", 500);
+                app.NextActionDue = DateOnly.FromDateTime(parsed.InterviewScheduledLocal.Value);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        var verb = created ? "Added" : "Updated";
+        TempData["StatusMessage"] = $"{verb} {app.Company} — {app.RoleTitle} as {app.Status} from pasted email.";
+        if (app.Status == ApplicationStatus.Interview)
+        {
+            return RedirectToAction("Interview", "Applications", new { id = app.Id });
+        }
+        return RedirectToAction("Details", "Applications", new { id = app.Id });
+    }
+
     // POST: Import/LoadDemoSeed — one-click import of the bundled fictional
     // 4-row demo seed CSV (idempotent, just like uploading the file).
     [HttpPost]
