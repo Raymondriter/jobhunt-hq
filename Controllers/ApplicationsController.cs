@@ -283,11 +283,52 @@ public class ApplicationsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET: Applications/AddPosting
-    public async Task<IActionResult> AddPosting()
+    // GET: Applications/AddPosting — also accepts pre-filled query parameters from
+    // the 1-click "Save to JobHunt HQ" browser bookmarklet (never auto-saves).
+    public async Task<IActionResult> AddPosting(
+        string? url = null,
+        string? company = null,
+        string? title = null,
+        string? location = null,
+        string? text = null)
     {
+        var parsedCompany = TruncateText(company, 200) ?? string.Empty;
+        var parsedTitle = TruncateText(title, 200) ?? string.Empty;
+
+        // Clean common job-board suffixes (" | LinkedIn", " - Indeed.com") and split "Role at Company".
+        if (!string.IsNullOrWhiteSpace(parsedTitle))
+        {
+            parsedTitle = System.Text.RegularExpressions.Regex.Replace(
+                parsedTitle,
+                @"\s*[\|\-–—]\s*(LinkedIn|Indeed|Glassdoor|Greenhouse|Lever|Ashby|Workday|Jobs)\b.*$",
+                string.Empty,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+            if (string.IsNullOrWhiteSpace(parsedCompany))
+            {
+                var atIdx = parsedTitle.LastIndexOf(" at ", StringComparison.OrdinalIgnoreCase);
+                if (atIdx > 2 && atIdx < parsedTitle.Length - 5)
+                {
+                    parsedCompany = parsedTitle[(atIdx + 4)..].Trim();
+                    parsedTitle = parsedTitle[..atIdx].Trim();
+                }
+            }
+        }
+
+        var fromBookmarklet = !string.IsNullOrWhiteSpace(url)
+            || !string.IsNullOrWhiteSpace(parsedTitle)
+            || !string.IsNullOrWhiteSpace(text);
+
         var model = new AddPostingViewModel
         {
+            PostingUrl = TruncateText(url, 1000),
+            Company = parsedCompany,
+            JobTitle = parsedTitle,
+            Location = TruncateText(location, 200),
+            PostingText = TruncateText(text, 12000),
+            FetchNote = fromBookmarklet
+                ? "Captured from your browser bookmarklet — review the fields below (or click Fetch from URL for full text) and save."
+                : null,
             ResumeOptions = await GetResumeOptionsAsync(null)
         };
         return View(model);

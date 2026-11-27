@@ -121,6 +121,21 @@ else
     }
 }
 
+<section class="dashboard-section" id="bookmarklet">
+    <h2>1-Click Browser Bookmarklet (capture jobs from any board)</h2>
+    @{
+        var bmHost = $"{Context.Request.Scheme}://{Context.Request.Host}";
+        var bmHref = "javascript:(function(){var u=location.href,t=document.title,c='',l='',d='';try{document.querySelectorAll('script[type=\"application/ld+json\"]').forEach(function(s){var j=JSON.parse(s.textContent);var arr=Array.isArray(j)?j:(j['@graph']||[j]);arr.forEach(function(o){if(o&&o['@type']==='JobPosting'){if(o.title)t=o.title;if(o.hiringOrganization&&o.hiringOrganization.name)c=o.hiringOrganization.name;if(o.jobLocation&&o.jobLocation.address&&o.jobLocation.address.addressLocality)l=o.jobLocation.address.addressLocality;}});});}catch(e){}var sel=(window.getSelection?window.getSelection().toString():'').trim();var body=(sel||((document.querySelector('main,article,[role=main]')||document.body).innerText||'')).replace(/\\s+/g,' ').trim().slice(0,4200);var q='?url='+encodeURIComponent(u)+'&title='+encodeURIComponent(t)+(c?'&company='+encodeURIComponent(c):'')+(l?'&location='+encodeURIComponent(l):'')+(body?'&text='+encodeURIComponent(body):'');window.open('" + bmHost + "/Applications/AddPosting'+q,'_blank');})();";
+    }
+    <p class="page-note">
+        Drag this button onto your bookmarks bar — no Chrome extension install required. Click it on any LinkedIn, Greenhouse, Lever, Ashby, Workday, or Indeed posting to capture the URL, company, role, and description in one click.
+    </p>
+    <div class="button-row">
+        <a class="button" href="@bmHref" onclick="event.preventDefault();alert('Drag this button up to your browser bookmarks bar — then click it while viewing any job posting!');" title="Drag to your bookmarks bar">+ Save to JobHunt HQ</a>
+        <button type="button" class="button button-secondary button-small" id="copy-bookmarklet" data-copy="@bmHref">Copy bookmarklet URL</button>
+    </div>
+</section>
+
 <section class="dashboard-section" id="calendar">
     <h2>Calendar sync (Google, Apple, Outlook)</h2>
     @{
@@ -333,6 +348,7 @@ $@"Use JobHunt HQ ({hostBase}) as the single source of truth for my job search u
         wireProfileCopy('copy-standing-answers');
         wireProfileCopy('copy-new-token');
         wireProfileCopy('copy-feed-url');
+        wireProfileCopy('copy-bookmarklet');
         wireProfileCopy('copy-muse-contract');
     </script>
 }
