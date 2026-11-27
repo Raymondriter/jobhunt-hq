@@ -21,15 +21,18 @@ public class ProfileController : Controller
     private readonly ApplicationDbContext _context;
     private readonly FitCheckService _fitCheck;
     private readonly UserDataPurgeService _purge;
+    private readonly ResumeTextService _resumeText;
 
     public ProfileController(
         ApplicationDbContext context,
         FitCheckService fitCheck,
-        UserDataPurgeService purge)
+        UserDataPurgeService purge,
+        ResumeTextService resumeText)
     {
         _context = context;
         _fitCheck = fitCheck;
         _purge = purge;
+        _resumeText = resumeText;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -45,8 +48,80 @@ public class ProfileController : Controller
             .Where(t => t.UserId == CurrentUserId && t.RevokedUtc == null)
             .OrderByDescending(t => t.CreatedUtc)
             .ToListAsync();
+        var hasResumePdf = await _context.ResumeVersions
+            .AnyAsync(r => r.UserId == CurrentUserId && r.BlobName != null);
         ViewData["ApiTokens"] = tokens;
+        ViewData["HasResumePdf"] = hasResumePdf;
         return View(profile);
+    }
+
+    // POST: Profile/AutoFillFromResume — zero-cost onboarding accelerator:
+    // extracts real skills & role hints from the user's newest uploaded resume PDF
+    // to pre-fill MustHaves and TargetRoles without overwriting custom fields.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AutoFillFromResume()
+    {
+        var resume = await _context.ResumeVersions
+            .Where(r => r.UserId == CurrentUserId && r.BlobName != null)
+            .OrderByDescending(r => r.CreatedUtc)
+            .FirstOrDefaultAsync();
+
+        if (resume is null)
+        {
+            TempData["ErrorMessage"] = "Upload a resume PDF first on the Resumes page so JobHunt HQ can extract your skills automatically.";
+            return RedirectToAction("Create", "Resumes");
+        }
+
+        var extracted = await _resumeText.ExtractAsync(resume);
+        if (string.IsNullOrWhiteSpace(extracted.Text))
+        {
+            TempData["ErrorMessage"] = extracted.Note ?? "Could not extract readable text from that PDF.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var skills = PrepAnalysisService.ExtractResumeSkills(extracted.Text, 12);
+        var roles = PrepAnalysisService.SuggestTargetRoles(extracted.Text);
+        if (skills.Count == 0 && roles.Count == 0)
+        {
+            TempData["ErrorMessage"] = "No recognizable technical keywords were detected in your resume PDF — you can enter them manually on Edit Profile.";
+            return RedirectToAction(nameof(Edit));
+        }
+
+        var profile = await FindMineAsync();
+        if (profile is null)
+        {
+            profile = new SearchProfile
+            {
+                UserId = CurrentUserId,
+                CreatedUtc = DateTime.UtcNow
+            };
+            _context.SearchProfiles.Add(profile);
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.TargetRoles) && roles.Count > 0)
+        {
+            profile.TargetRoles = string.Join(", ", roles);
+        }
+
+        var existingMustHaves = FitCheckService.ParseList(profile.MustHaves);
+        var merged = existingMustHaves
+            .Concat(skills)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        profile.MustHaves = string.Join(", ", merged);
+
+        if (string.IsNullOrWhiteSpace(profile.RemotePreference)
+            && extracted.Text.Contains("remote", StringComparison.OrdinalIgnoreCase))
+        {
+            profile.RemotePreference = "Remote (US)";
+        }
+
+        profile.UpdatedUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        TempData["StatusMessage"] = $"Auto-filled your search profile from \"{resume.Name}\" ({skills.Count} skills detected). Review or customize anytime!";
+        return RedirectToAction(nameof(Index));
     }
 
     // POST: Profile/CreateToken — create a personal jhq_ API token, shown once.

@@ -200,4 +200,64 @@ public static class PrepAnalysisService
 
         return cards;
     }
+
+    /// <summary>
+    /// Extracts real, deterministic technical skills from a user's uploaded resume
+    /// PDF text so first-time onboarding can auto-fill their Search Profile in one click ($0).
+    /// </summary>
+    public static List<string> ExtractResumeSkills(string? resumeText, int maxSkills = 12)
+    {
+        if (string.IsNullOrWhiteSpace(resumeText))
+        {
+            return new List<string>();
+        }
+
+        var found = new List<string>();
+        foreach (var (display, pattern) in SkillLexicon)
+        {
+            if (Regex.IsMatch(resumeText, pattern, RegexOptions.IgnoreCase))
+            {
+                found.Add(display);
+                if (found.Count >= maxSkills) break;
+            }
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// Suggests target role titles grounded strictly in keywords present in the
+    /// user's own uploaded resume text.
+    /// </summary>
+    public static List<string> SuggestTargetRoles(string? resumeText)
+    {
+        if (string.IsNullOrWhiteSpace(resumeText))
+        {
+            return new List<string>();
+        }
+
+        var roles = new List<string>();
+        var lower = resumeText.ToLowerInvariant();
+        var isSenior = lower.Contains("senior") || lower.Contains("lead") || lower.Contains("staff") || lower.Contains("architect");
+        var prefix = isSenior ? "Senior " : "";
+
+        if (Regex.IsMatch(resumeText, @"\b(full[\s\-]?stack)\b", RegexOptions.IgnoreCase))
+            roles.Add($"{prefix}Full-Stack Software Engineer");
+        if (Regex.IsMatch(resumeText, @"(?<![A-Za-z0-9_])(\.net|c#|asp\.net)(?![A-Za-z0-9_])", RegexOptions.IgnoreCase))
+            roles.Add($"{prefix}.NET Software Engineer");
+        if (Regex.IsMatch(resumeText, @"\b(back[\s\-]?end|rest\s*api|microservices)\b", RegexOptions.IgnoreCase))
+            roles.Add($"{prefix}Backend Engineer");
+        if (Regex.IsMatch(resumeText, @"\b(front[\s\-]?end|react|vue|angular)\b", RegexOptions.IgnoreCase) && roles.Count < 3)
+            roles.Add($"{prefix}Frontend Engineer");
+        if (Regex.IsMatch(resumeText, @"\b(devops|sre|kubernetes|terraform)\b", RegexOptions.IgnoreCase) && roles.Count < 3)
+            roles.Add($"{prefix}DevOps / Cloud Engineer");
+        if (Regex.IsMatch(resumeText, @"\b(data\s+engineer|spark|bigquery|snowflake)\b", RegexOptions.IgnoreCase) && roles.Count < 3)
+            roles.Add($"{prefix}Data Engineer");
+
+        if (roles.Count == 0)
+        {
+            roles.Add($"{prefix}Software Engineer");
+        }
+
+        return roles.Distinct(StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+    }
 }

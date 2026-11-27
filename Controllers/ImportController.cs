@@ -14,11 +14,19 @@ public class ImportController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
+    private readonly PostingFetchService _postingFetch;
+    private readonly FitCheckService _fitCheck;
 
-    public ImportController(ApplicationDbContext context, IWebHostEnvironment env)
+    public ImportController(
+        ApplicationDbContext context,
+        IWebHostEnvironment env,
+        PostingFetchService postingFetch,
+        FitCheckService fitCheck)
     {
         _context = context;
         _env = env;
+        _postingFetch = postingFetch;
+        _fitCheck = fitCheck;
     }
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -151,6 +159,93 @@ public class ImportController : Controller
             return RedirectToAction("Interview", "Applications", new { id = app.Id });
         }
         return RedirectToAction("Details", "Applications", new { id = app.Id });
+    }
+
+    // POST: Import/BulkUrls — paste up to 15 posting URLs (one per line) to
+    // batch-fetch, fit-check, and add as Saved applications in one click ($0).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkUrls(string? rawUrls)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrls))
+        {
+            TempData["ErrorMessage"] = "Paste at least one job posting URL (one per line).";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var lines = rawUrls
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(l => l.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || l.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(15)
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            TempData["ErrorMessage"] = "No valid http:// or https:// URLs found.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var existingUrls = (await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId && (a.PostingUrl != null || a.Url != null))
+            .Select(a => a.PostingUrl ?? a.Url!)
+            .ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var profile = await _context.SearchProfiles.FirstOrDefaultAsync(p => p.UserId == CurrentUserId);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var now = DateTime.UtcNow;
+        var added = 0;
+        var skipped = 0;
+
+        foreach (var url in lines)
+        {
+            if (existingUrls.Contains(url))
+            {
+                skipped++;
+                continue;
+            }
+
+            var fetched = await _postingFetch.FetchAsync(url);
+            var uri = new Uri(url);
+            var hostCompany = uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("boards.greenhouse.io", "Greenhouse Posting", StringComparison.OrdinalIgnoreCase)
+                .Replace("jobs.lever.co", "Lever Posting", StringComparison.OrdinalIgnoreCase)
+                .Replace("jobs.ashbyhq.com", "Ashby Posting", StringComparison.OrdinalIgnoreCase);
+            var title = !string.IsNullOrWhiteSpace(fetched.Title) ? Truncate(fetched.Title, 200)! : "Saved Role (review title)";
+
+            var app = new JobApplication
+            {
+                UserId = CurrentUserId,
+                Company = Truncate(hostCompany, 200)!,
+                RoleTitle = title,
+                Url = Truncate(url, 1000),
+                PostingUrl = Truncate(url, 1000),
+                PostingText = fetched.Success ? fetched.Text : null,
+                Status = ApplicationStatus.Saved,
+                DateSaved = today,
+                SourceAgent = "Bulk URLs",
+                Notes = fetched.Success ? "Captured via Bulk URL import." : "Saved URL (page required login or JS — paste description on Edit).",
+                CreatedUtc = now,
+                UpdatedUtc = now
+            };
+
+            var fit = _fitCheck.Evaluate(app, profile);
+            app.FitVerdict = fit.Verdict;
+            app.FitReasons = fit.ReasonsText;
+            _context.JobApplications.Add(app);
+            existingUrls.Add(url);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        TempData["StatusMessage"] = $"Captured and fit-checked {added} posting{(added == 1 ? "" : "s")}" +
+            (skipped > 0 ? $" ({skipped} already tracked)." : ".");
+        return RedirectToAction("Index", "Board");
     }
 
     // POST: Import/LoadDemoSeed — one-click import of the bundled fictional

@@ -28,9 +28,17 @@
                     <strong>Create your search profile</strong>
                     <p>Set your target roles, pay floor, must-haves, deal-breakers, skip list, and standing answers.</p>
                 </div>
-                <a class="button @(Model.HasSearchProfile ? "button-secondary" : "") button-small" asp-controller="Profile" asp-action="Edit">
-                    @(Model.HasSearchProfile ? "Review profile" : "Set up profile")
-                </a>
+                <span class="step-actions">
+                    @if (!Model.HasSearchProfile && Model.HasUploadedResumePdf)
+                    {
+                        <form asp-controller="Profile" asp-action="AutoFillFromResume" method="post" style="display:inline">
+                            <button type="submit" class="button button-small">⚡ Auto-fill from resume</button>
+                        </form>
+                    }
+                    <a class="button @(Model.HasSearchProfile || Model.HasUploadedResumePdf ? "button-secondary" : "") button-small" asp-controller="Profile" asp-action="Edit">
+                        @(Model.HasSearchProfile ? "Review profile" : "Set up profile")
+                    </a>
+                </span>
             </li>
             <li class="@(Model.HasResumeVersion ? "step-done" : "step-pending")">
                 <span class="step-indicator" aria-hidden="true">@(Model.HasResumeVersion ? "✓" : "2")</span>

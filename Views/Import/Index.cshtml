@@ -29,6 +29,20 @@
     </form>
 </section>
 
+<section class="dashboard-section prepare-workspace-box" id="bulk-urls">
+    <h2>Bulk paste job URLs (up to 15 at once)</h2>
+    <p class="page-note">
+        Paste job posting links (one per line) to batch-fetch, run your deterministic fit check on every one, and drop them straight onto your Pipeline Board.
+    </p>
+    <form asp-action="BulkUrls" method="post" class="workspace-form">
+        <div class="form-row">
+            <label for="rawUrls">Job posting URLs (one per line)</label>
+            <textarea id="rawUrls" name="rawUrls" rows="4" required placeholder="https://boards.greenhouse.io/company/jobs/123&#10;https://jobs.lever.co/company/abc"></textarea>
+        </div>
+        <button type="submit" class="button button-secondary">Capture &amp; fit-check URLs</button>
+    </form>
+</section>
+
 <h2 style="margin-top: 2rem;">Import applications from CSV</h2>
 
 <p>

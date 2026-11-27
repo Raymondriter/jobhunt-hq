@@ -5,21 +5,28 @@
 @{
     ViewData["Title"] = "Search profile";
     var apiTokens = ViewData["ApiTokens"] as List<ApiToken> ?? new List<ApiToken>();
+    var hasResumePdf = ViewData["HasResumePdf"] as bool? ?? false;
     var newPlainToken = TempData["NewApiTokenPlaintext"] as string;
     var newTokenName = TempData["NewApiTokenName"] as string;
 }
 
 <div class="page-heading">
     <h1>Search profile</h1>
-    @if (Model is not null)
-    {
-        <span class="heading-actions">
+    <span class="heading-actions">
+        @if (hasResumePdf)
+        {
+            <form asp-action="AutoFillFromResume" method="post">
+                <button type="submit" class="button button-secondary">⚡ Auto-fill from resume PDF</button>
+            </form>
+        }
+        @if (Model is not null)
+        {
             <a class="button" asp-action="Edit">Edit profile</a>
             <form asp-action="RecheckAll" method="post">
                 <button type="submit" class="button button-secondary">Re-check all applications</button>
             </form>
-        </span>
-    }
+        }
+    </span>
 </div>
 
 @if (Model is null)
@@ -30,7 +37,20 @@
         must-haves, deal-breakers, and the companies you skip — plus the
         standing answers you reuse on applications.
     </p>
-    <p><a class="button" asp-action="Edit">Create your search profile</a></p>
+    <div class="button-row">
+        @if (hasResumePdf)
+        {
+            <form asp-action="AutoFillFromResume" method="post">
+                <button type="submit" class="button">⚡ Auto-fill profile from my resume PDF</button>
+            </form>
+            <a class="button button-secondary" asp-action="Edit">Set up manually</a>
+        }
+        else
+        {
+            <a class="button" asp-action="Edit">Create your search profile</a>
+            <a class="button button-secondary" asp-controller="Resumes" asp-action="Create">Or upload resume PDF first to auto-fill</a>
+        }
+    </div>
 }
 else
 {
