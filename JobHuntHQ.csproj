@@ -13,6 +13,9 @@
     <Compile Remove="JobHuntHQ.Functions\**" />
     <Content Remove="JobHuntHQ.Functions\**" />
     <None Remove="JobHuntHQ.Functions\**" />
+    <Compile Remove="JobHuntHQ.Tests\**" />
+    <Content Remove="JobHuntHQ.Tests\**" />
+    <None Remove="JobHuntHQ.Tests\**" />
   </ItemGroup>
 
   <ItemGroup>
