@@ -229,6 +229,54 @@
     }
 </section>
 
+@if (Model.QuietApplications.Count > 0)
+{
+    <section class="dashboard-section">
+        <div class="section-heading">
+            <h2>Quiet applications — 7+ days since applying (@Model.QuietApplicationsTotalCount)</h2>
+            <a class="link-subtle" asp-controller="Applications" asp-action="Index" asp-route-status="Applied" asp-route-sortBy="applied">Review all in Applications &rarr;</a>
+        </div>
+        <p class="page-note">
+            These open applications haven't had a follow-up scheduled yet. Schedule a quick nudge or clear out quiet ones in one click.
+        </p>
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Role</th>
+                        <th>Applied</th>
+                        <th>Age</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var app in Model.QuietApplications)
+                    {
+                        var daysQuiet = app.DateApplied.HasValue ? Model.Today.DayNumber - app.DateApplied.Value.DayNumber : 0;
+                        <tr>
+                            <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@app.Id"><strong>@app.Company</strong></a></td>
+                            <td>@app.RoleTitle</td>
+                            <td>@app.DateApplied?.ToString("yyyy-MM-dd")</td>
+                            <td><span class="file-meta">@daysQuiet days ago</span></td>
+                            <td class="row-actions">
+                                <form asp-controller="Applications" asp-action="QuickTriage" asp-route-id="@app.Id" method="post">
+                                    <input type="hidden" name="mode" value="followup" />
+                                    <button type="submit" class="link-button">Schedule follow-up (+3d)</button>
+                                </form>
+                                <form asp-controller="Applications" asp-action="QuickTriage" asp-route-id="@app.Id" method="post">
+                                    <input type="hidden" name="mode" value="ghosted" />
+                                    <button type="submit" class="link-button" style="color: #6b7280;">Mark ghosted</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
 <section class="dashboard-section">
     <div class="section-heading">
         <h2>Recently updated</h2>

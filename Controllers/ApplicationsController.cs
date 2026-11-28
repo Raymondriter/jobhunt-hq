@@ -604,6 +604,97 @@ public class ApplicationsController : Controller
 
     // ---- M5: Interview Prep Workspace, Live Call Cheat Sheet & Interview AI Packet ----
 
+    // POST: Applications/BulkAction — fast multi-select triage for 50–100+ pipelines.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkAction(int[]? selectedIds, string? bulkAction)
+    {
+        if (selectedIds is null || selectedIds.Length == 0 || string.IsNullOrWhiteSpace(bulkAction))
+        {
+            TempData["ErrorMessage"] = "Select at least one application and choose a bulk action.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var idSet = selectedIds.Distinct().ToList();
+        var apps = await _context.JobApplications
+            .Where(a => a.UserId == CurrentUserId && idSet.Contains(a.Id))
+            .ToListAsync();
+
+        if (apps.Count == 0)
+        {
+            return RedirectToAction(nameof(Index));
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var now = DateTime.UtcNow;
+        var label = bulkAction.Trim().ToLowerInvariant();
+        var summary = "";
+
+        foreach (var app in apps)
+        {
+            switch (label)
+            {
+                case "followup3":
+                    app.NextAction = string.IsNullOrWhiteSpace(app.NextAction) ? "Send brief status follow-up" : app.NextAction;
+                    app.NextActionDue = today.AddDays(3);
+                    summary = $"Scheduled 3-day follow-up for {apps.Count} application{(apps.Count == 1 ? "" : "s")}.";
+                    break;
+                case "applied":
+                    app.Status = ApplicationStatus.Applied;
+                    app.DateApplied ??= today;
+                    summary = $"Marked {apps.Count} application{(apps.Count == 1 ? "" : "s")} as Applied.";
+                    break;
+                case "ghosted":
+                    app.Status = ApplicationStatus.Ghosted;
+                    app.NextAction = null;
+                    app.NextActionDue = null;
+                    summary = $"Marked {apps.Count} application{(apps.Count == 1 ? "" : "s")} as Ghosted.";
+                    break;
+                case "rejected":
+                    app.Status = ApplicationStatus.Rejected;
+                    app.NextAction = null;
+                    app.NextActionDue = null;
+                    summary = $"Marked {apps.Count} application{(apps.Count == 1 ? "" : "s")} as Rejected.";
+                    break;
+                default:
+                    TempData["ErrorMessage"] = "Unknown bulk action.";
+                    return RedirectToAction(nameof(Index));
+            }
+            app.UpdatedUtc = now;
+        }
+
+        await _context.SaveChangesAsync();
+        TempData["StatusMessage"] = summary;
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: Applications/QuickTriage/5 — 1-click follow-up or ghosted action from Dashboard Quiet Radar.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> QuickTriage(int id, string? mode)
+    {
+        var app = await FindMineAsync(id);
+        if (app is null) return NotFound();
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (string.Equals(mode, "ghosted", StringComparison.OrdinalIgnoreCase))
+        {
+            app.Status = ApplicationStatus.Ghosted;
+            app.NextAction = null;
+            app.NextActionDue = null;
+            TempData["StatusMessage"] = $"Marked {app.Company} — {app.RoleTitle} as Ghosted.";
+        }
+        else
+        {
+            app.NextAction = "Send polite follow-up note";
+            app.NextActionDue = today.AddDays(3);
+            TempData["StatusMessage"] = $"Scheduled a 3-day follow-up for {app.Company} ({app.NextActionDue:yyyy-MM-dd}).";
+        }
+        app.UpdatedUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return RedirectToAction("Dashboard", "Home");
+    }
+
     // POST: Applications/PromoteToInterview/5 — one-click move into Interview stage
     // and open the Interview Prep Workspace.
     [HttpPost]

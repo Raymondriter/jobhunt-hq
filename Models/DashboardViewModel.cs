@@ -39,4 +39,9 @@ public class DashboardViewModel
 
     /// <summary>The 5 most recently updated applications.</summary>
     public List<JobApplication> RecentlyUpdated { get; set; } = new();
+
+    /// <summary>Applied rows 7+ days old with no scheduled follow-up yet (oldest first, top 8).</summary>
+    public List<JobApplication> QuietApplications { get; set; } = new();
+
+    public int QuietApplicationsTotalCount { get; set; }
 }

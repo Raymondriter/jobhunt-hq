@@ -75,6 +75,19 @@ public class HomeController : Controller
             .OrderByDescending(a => a.UpdatedUtc)
             .ToListAsync();
 
+        var quietCutoff = today.AddDays(-7);
+        var quietQuery = mine
+            .Where(a => a.Status == ApplicationStatus.Applied
+                        && a.DateApplied != null
+                        && a.DateApplied <= quietCutoff
+                        && a.NextActionDue == null);
+        var quietTotal = await quietQuery.CountAsync();
+        var quietApps = await quietQuery
+            .OrderBy(a => a.DateApplied)
+            .ThenBy(a => a.Id)
+            .Take(8)
+            .ToListAsync();
+
         var hasProfile = await _context.SearchProfiles
             .AnyAsync(p => p.UserId == userId);
         var resumes = await _context.ResumeVersions
@@ -108,7 +121,9 @@ public class HomeController : Controller
             UpcomingInterviews = upcomingInterviews,
             ActiveInterviewApplications = activeInterviewApps,
             Today = today,
-            RecentlyUpdated = recent
+            RecentlyUpdated = recent,
+            QuietApplications = quietApps,
+            QuietApplicationsTotalCount = quietTotal
         };
         return View("Dashboard", model);
     }

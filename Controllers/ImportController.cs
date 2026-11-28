@@ -331,9 +331,11 @@ public class ImportController : Controller
             }
         }
 
-        if (!columns.ContainsKey("Company") || !(columns.ContainsKey("Title") || columns.ContainsKey("RoleTitle")))
+        var companyAliases = new[] { "Company", "Company Name", "Organization", "Employer" };
+        var titleAliases = new[] { "Title", "RoleTitle", "Job Title", "Position", "Role", "Job" };
+        if (!companyAliases.Any(columns.ContainsKey) || !titleAliases.Any(columns.ContainsKey))
         {
-            return (result, "The CSV needs at least a Company column and a Title (or RoleTitle) column in its header row.");
+            return (result, "The CSV needs at least a Company (or Company Name) column and a Title (or Job Title / Position / Role) column in its header row.");
         }
 
         string? Get(CsvParser.CsvRecord row, params string[] names)
@@ -387,8 +389,8 @@ public class ImportController : Controller
                 continue;
             }
 
-            var company = Get(row, "Company");
-            var title = Get(row, "Title", "RoleTitle");
+            var company = Get(row, "Company", "Company Name", "Organization", "Employer");
+            var title = Get(row, "Title", "RoleTitle", "Job Title", "Position", "Role", "Job");
 
             if (company == null)
             {
@@ -406,11 +408,10 @@ public class ImportController : Controller
                 continue;
             }
 
-            // Status: match the enum case-insensitively; anything else defaults
-            // to Saved and is reported as a warning (the row still imports).
+            // Status: match enum or common Huntr/Teal/Simplify/LinkedIn stage labels.
             var status = ApplicationStatus.Saved;
-            var statusText = Get(row, "Status");
-            if (statusText != null && !Enum.TryParse<ApplicationStatus>(statusText, ignoreCase: true, out status))
+            var statusText = Get(row, "Status", "Stage", "Pipeline Stage", "Application Status");
+            if (statusText != null && !TryParseStatusAlias(statusText, out status))
             {
                 status = ApplicationStatus.Saved;
                 result.Warnings.Add($"Line {row.LineNumber}: status \"{statusText}\" was not recognized — imported as Saved.");
@@ -450,8 +451,8 @@ public class ImportController : Controller
                 return null;
             }
 
-            var dateApplied = ParseDate(Get(row, "DateApplied"), "DateApplied");
-            var rowUrl = Truncate(Get(row, "Url"), 1000);
+            var dateApplied = ParseDate(Get(row, "DateApplied", "Date Applied", "Applied Date", "Applied On", "Date"), "DateApplied");
+            var rowUrl = Truncate(Get(row, "Url", "Job Url", "Posting Url", "Job Link", "Link", "Application Url"), 1000);
             var rowKey = DedupKey(company, title, dateApplied, rowUrl);
             if (!seenKeys.Add(rowKey))
             {
@@ -460,7 +461,7 @@ public class ImportController : Controller
             }
 
             int? resumeVersionId = null;
-            var resumeName = Get(row, "ResumeName");
+            var resumeName = Get(row, "ResumeName", "Resume", "Resume Version");
             if (resumeName != null)
             {
                 if (resumeByName.TryGetValue(resumeName, out var matchedId))
@@ -473,8 +474,8 @@ public class ImportController : Controller
                 }
             }
 
-            var salaryMin = ParseSalary(Get(row, "SalaryMin"), "SalaryMin");
-            var salaryMax = ParseSalary(Get(row, "SalaryMax"), "SalaryMax");
+            var salaryMin = ParseSalary(Get(row, "SalaryMin", "Min Salary", "PayMin", "Salary"), "SalaryMin");
+            var salaryMax = ParseSalary(Get(row, "SalaryMax", "Max Salary", "PayMax"), "SalaryMax");
 
             toAdd.Add(new JobApplication
             {
@@ -483,20 +484,20 @@ public class ImportController : Controller
                 RoleTitle = title,
                 Url = rowUrl,
                 PostingUrl = rowUrl,
-                Location = Truncate(Get(row, "Location"), 200),
+                Location = Truncate(Get(row, "Location", "City", "Work Type", "Workplace"), 200),
                 Status = status,
                 // Tracker exports rarely carry a separate "saved" date; the
                 // applied date is the best record of when the row appeared.
                 DateSaved = dateApplied ?? today,
                 DateApplied = dateApplied,
-                NextAction = Truncate(Get(row, "NextAction"), 500),
-                NextActionDue = ParseDate(Get(row, "NextActionDue"), "NextActionDue"),
+                NextAction = Truncate(Get(row, "NextAction", "Next Action", "Next Step"), 500),
+                NextActionDue = ParseDate(Get(row, "NextActionDue", "Next Action Due", "Follow Up Date"), "NextActionDue"),
                 SalaryMin = salaryMin,
                 SalaryMax = salaryMax,
                 PayMin = salaryMin,
                 PayMax = salaryMax,
                 ResumeVersionId = resumeVersionId,
-                Notes = Truncate(Get(row, "Notes"), 4000),
+                Notes = Truncate(Get(row, "Notes", "Comments", "Description"), 4000),
                 CreatedUtc = now,
                 UpdatedUtc = now
             });
@@ -510,6 +511,58 @@ public class ImportController : Controller
 
         result.ImportedCount = toAdd.Count;
         return (result, null);
+    }
+
+    private static bool TryParseStatusAlias(string value, out ApplicationStatus status)
+    {
+        if (Enum.TryParse(value.Trim(), ignoreCase: true, out status))
+        {
+            return true;
+        }
+
+        var norm = value.Trim().ToLowerInvariant();
+        if (norm is "bookmarked" or "wishlist" or "interested" or "to apply" or "draft")
+        {
+            status = ApplicationStatus.Saved;
+            return true;
+        }
+        if (norm is "submitted" or "in review" or "under review" or "application sent")
+        {
+            status = ApplicationStatus.Applied;
+            return true;
+        }
+        if (norm.Contains("screen") || norm is "phone call" or "recruiter call")
+        {
+            status = ApplicationStatus.Screening;
+            return true;
+        }
+        if (norm.Contains("interview") || norm.Contains("onsite") || norm.Contains("technical") || norm.Contains("final round"))
+        {
+            status = ApplicationStatus.Interview;
+            return true;
+        }
+        if (norm.Contains("offer") && !norm.Contains("no offer"))
+        {
+            status = ApplicationStatus.Offer;
+            return true;
+        }
+        if (norm.Contains("reject") || norm is "declined" or "not selected" or "no offer" or "closed")
+        {
+            status = ApplicationStatus.Rejected;
+            return true;
+        }
+        if (norm.Contains("ghost") || norm is "no response" or "archived")
+        {
+            status = ApplicationStatus.Ghosted;
+            return true;
+        }
+        if (norm.Contains("withdraw"))
+        {
+            status = ApplicationStatus.Withdrawn;
+            return true;
+        }
+        status = ApplicationStatus.Saved;
+        return false;
     }
 
     private static string? Truncate(string? value, int maxLength) =>

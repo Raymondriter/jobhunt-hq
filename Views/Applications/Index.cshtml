@@ -109,10 +109,24 @@
 }
 else
 {
+    <form asp-action="BulkAction" method="post" id="bulk-action-form" class="filter-bar" style="display:none; background:#f0f7ff; border-color:#b6d4fe; margin-bottom:0.75rem;">
+        <span id="bulk-selected-count" style="font-weight:600;">0 selected</span>
+        <select name="bulkAction" aria-label="Choose bulk action" required>
+            <option value="">Choose bulk action…</option>
+            <option value="followup3">Schedule follow-up (+3 days)</option>
+            <option value="applied">Mark Applied (today)</option>
+            <option value="ghosted">Mark Ghosted</option>
+            <option value="rejected">Mark Rejected</option>
+        </select>
+        <button type="submit" class="button button-small">Apply to selected</button>
+        <button type="button" class="link-button" id="bulk-clear-btn">Clear selection</button>
+    </form>
+
     <div class="table-scroll">
         <table class="data-table">
             <thead>
                 <tr>
+                    <th style="width:2rem;"><input type="checkbox" id="bulk-select-all" aria-label="Select all applications" /></th>
                     <th>Company</th>
                     <th>Role</th>
                     <th>Status</th>
@@ -139,6 +153,7 @@ else
                         }
                     }
                     <tr>
+                        <td><input type="checkbox" class="bulk-row-cb" name="selectedIds" value="@app.Id" form="bulk-action-form" aria-label="Select @app.Company" /></td>
                         <td>
                             <a asp-action="Details" asp-route-id="@app.Id"><strong>@app.Company</strong></a>
                             @if (!string.IsNullOrWhiteSpace(app.Location))
@@ -204,5 +219,38 @@ else
                 select.form.submit();
             });
         });
+
+        (function () {
+            var bar = document.getElementById('bulk-action-form');
+            var countEl = document.getElementById('bulk-selected-count');
+            var selectAll = document.getElementById('bulk-select-all');
+            var clearBtn = document.getElementById('bulk-clear-btn');
+            var boxes = Array.from(document.querySelectorAll('.bulk-row-cb'));
+            if (!bar || boxes.length === 0) return;
+
+            function syncBulkBar() {
+                var checked = boxes.filter(function (b) { return b.checked; }).length;
+                bar.style.display = checked > 0 ? 'flex' : 'none';
+                countEl.textContent = checked + ' selected';
+                if (selectAll) {
+                    selectAll.checked = checked > 0 && checked === boxes.length;
+                    selectAll.indeterminate = checked > 0 && checked < boxes.length;
+                }
+            }
+
+            boxes.forEach(function (b) { b.addEventListener('change', syncBulkBar); });
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    boxes.forEach(function (b) { b.checked = selectAll.checked; });
+                    syncBulkBar();
+                });
+            }
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    boxes.forEach(function (b) { b.checked = false; });
+                    syncBulkBar();
+                });
+            }
+        })();
     </script>
 }
