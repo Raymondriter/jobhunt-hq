@@ -309,7 +309,7 @@ public class ImportController : Controller
         return View("Result", result);
     }
 
-    private async Task<(ImportResultViewModel Result, string? Error)> ImportCsvTextAsync(string text)
+    internal async Task<(ImportResultViewModel Result, string? Error)> ImportCsvTextAsync(string text)
     {
         var records = CsvParser.Parse(text);
         var result = new ImportResultViewModel();
